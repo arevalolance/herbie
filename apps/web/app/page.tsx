@@ -1,11 +1,46 @@
 import { Button } from "@workspace/ui/components/button"
+import { withAuth, signOut } from '@workos-inc/authkit-nextjs'
+import Link from 'next/link'
 
-export default function Page() {
+export default async function Page() {
+  const { user } = await withAuth()
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-svh">
+        <div className="flex flex-col items-center justify-center gap-4">
+          <h1 className="text-2xl font-bold">Welcome to Herbie</h1>
+          <p className="text-muted-foreground">Please sign in to continue</p>
+          <div className="flex gap-4">
+            <Button asChild>
+              <Link href="/sign-in">Sign In</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/sign-up">Sign Up</Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-center justify-center min-h-svh">
       <div className="flex flex-col items-center justify-center gap-4">
-        <h1 className="text-2xl font-bold">Hello World</h1>
-        <Button size="sm">Button</Button>
+        <h1 className="text-2xl font-bold">
+          Welcome back{user.firstName ? `, ${user.firstName}` : ''}!
+        </h1>
+        <p className="text-muted-foreground">
+          Signed in as {user.email}
+        </p>
+        <form action={async () => {
+          'use server'
+          await signOut()
+        }}>
+          <Button type="submit" variant="outline">
+            Sign Out
+          </Button>
+        </form>
       </div>
     </div>
   )
