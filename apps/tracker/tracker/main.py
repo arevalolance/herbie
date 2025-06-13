@@ -2,6 +2,7 @@ import time
 import logging
 import csv
 import os
+from typing import Dict, List
 
 from .api_connector import SimRF2
 from .adapter import rf2_data
@@ -18,32 +19,86 @@ CHAR_ENCODING = "utf-8"
 LOG_DIR = os.path.join(os.path.dirname(__file__), "telemetry_logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 
-# Telemetry fields to record per sample
-SAMPLE_FIELDS = [
-    "elapsed_time",
-    "lap_number",
-    "speed_kph",
-    "gear",
-    "rpm",
-    "throttle",
-    "brake",
-    "steering",
-    "pos_x",
-    "pos_y",
-    "pos_z",
-    "acc_x",
-    "acc_y",
-    "acc_z",
-    "sector",
-    "lap_dist",
-    "path_lateral",
-    "track_edge",
-    "surface_fl",
-    "surface_fr",
-    "surface_rl",
-    "surface_rr",
-    "lap_valid",
-]
+# Define data classes and their fields
+TELEMETRY_CLASSES = {
+    "brake": {
+        "fields": ["bias_front", "pressure", "temperature"],
+        "class": rf2_data.Brake
+    },
+    "engine": {
+        "fields": ["gear", "gear_max", "rpm", "rpm_max", "torque", "turbo", "oil_temperature", "water_temperature"],
+        "class": rf2_data.Engine
+    },
+    "inputs": {
+        "fields": ["throttle", "throttle_raw", "brake", "brake_raw", "clutch", "clutch_raw", 
+                  "steering", "steering_raw", "steering_shaft_torque", "steering_range_physical", 
+                  "steering_range_visual", "force_feedback"],
+        "class": rf2_data.Inputs
+    },
+    "lap": {
+        "fields": ["number", "completed_laps", "track_length", "distance", "progress", "maximum", 
+                  "sector_index", "behind_leader", "behind_next"],
+        "class": rf2_data.Lap
+    },
+    "session": {
+        "fields": ["elapsed", "start", "end", "remaining", "session_type", "lap_type", "in_race", 
+                  "in_countdown", "in_formation", "pit_open", "green_flag", "blue_flag", "yellow_flag", 
+                  "start_lights", "track_name", "track_temperature", "ambient_temperature", "raininess", 
+                  "wetness_minimum", "wetness_maximum", "wetness_average", "wetness"],
+        "class": rf2_data.Session
+    },
+    "switch": {
+        "fields": ["headlights", "ignition_starter", "speed_limiter", "drs_status", "auto_clutch"],
+        "class": rf2_data.Switch
+    },
+    "timing": {
+        "fields": ["start", "elapsed", "current_laptime", "last_laptime", "best_laptime", 
+                  "estimated_laptime", "estimated_time_into", "current_sector1", "current_sector2", 
+                  "last_sector1", "last_sector2", "best_sector1", "best_sector2", "behind_leader", "behind_next"],
+        "class": rf2_data.Timing
+    },
+    "tyre": {
+        "fields": ["compound_front", "compound_rear", "compound", "compound_name_front", "compound_name_rear", 
+                  "compound_name", "surface_temperature_avg", "surface_temperature_ico", "inner_temperature_avg", 
+                  "inner_temperature_ico", "pressure", "load", "wear", "carcass_temperature"],
+        "class": rf2_data.Tyre
+    },
+    "vehicle": {
+        "fields": ["is_player", "is_driving", "player_index", "slot_id", "driver_name", "vehicle_name", 
+                  "class_name", "same_class", "total_vehicles", "place", "qualification", "in_pits", 
+                  "in_garage", "number_pitstops", "number_penalties", "pit_request", "finish_state", 
+                  "fuel", "tank_capacity", "orientation_yaw_radians", "position_xyz", "position_longitudinal", 
+                  "position_lateral", "position_vertical", "accel_lateral", "accel_longitudinal", 
+                  "accel_vertical", "velocity_lateral", "velocity_longitudinal", "velocity_vertical", 
+                  "speed", "downforce_front", "downforce_rear", "damage_severity", "is_detached", 
+                  "impact_time", "impact_magnitude", "impact_position"],
+        "class": rf2_data.Vehicle
+    },
+    "wheel": {
+        "fields": ["camber", "toe", "toe_symmetric", "rotation", "velocity_lateral", "velocity_longitudinal", 
+                  "slip_angle_fl", "slip_angle_fr", "slip_angle_rl", "slip_angle_rr", "ride_height", 
+                  "third_spring_deflection", "suspension_deflection", "suspension_force", 
+                  "position_vertical", "is_detached", "is_offroad"],
+        "class": rf2_data.Wheel
+    }
+}
+
+def get_telemetry_data(telemetry_class: rf2_data.DataAdapter, fields: List[str]) -> Dict:
+    """Get telemetry data for a specific class and its fields"""
+    data = {}
+    for field in fields:
+        try:
+            value = getattr(telemetry_class, field)()
+            # Handle tuple values by flattening them
+            if isinstance(value, tuple):
+                for i, v in enumerate(value):
+                    data[f"{field}_{i}"] = v
+            else:
+                data[field] = value
+        except Exception as e:
+            logging.warning(f"Failed to get {field}: {e}")
+            data[field] = None
+    return data
 
 def run_logger():
     rf2_sim = SimRF2()
@@ -58,112 +113,65 @@ def run_logger():
 
     rf2_sim.start()
 
-    telemetry_data = rf2_sim.dataset()
-
     print("Logger connected. Monitoring telemetry data... (Press Ctrl+C to exit)")
-    lap_data: list[dict] = []  # samples collected for the current lap
+    
+    # Initialize data storage for each class
+    class_data: Dict[str, List[Dict]] = {class_name: [] for class_name in TELEMETRY_CLASSES.keys()}
     prev_lap_number = None
     first_struct_dumped = False
+
     try:
         while True:
-            # Check if the sim is running and sending data
             if not rf2_sim.info.isPaused:
+                # Get current lap number
+                current_lap = rf2_sim.info.rf2TeleVeh().mLapNumber
 
-                # Option A: Use the high-level accessors from rf2_data.py
-                # Cache telemetry & scoring structs for this tick to avoid redundant calls
-                tele_veh = rf2_sim.info.rf2TeleVeh()
-                scor_veh = rf2_sim.info.rf2ScorVeh()
+                # Collect data for each class
+                for class_name, class_info in TELEMETRY_CLASSES.items():
+                    telemetry_class = class_info["class"](rf2_sim.info)
+                    data = get_telemetry_data(telemetry_class, class_info["fields"])
+                    data["elapsed_time"] = rf2_sim.info.rf2TeleVeh().mElapsedTime
+                    data["lap_number"] = current_lap
+                    class_data[class_name].append(data)
 
-                rpm = telemetry_data.engine.rpm()
-                speed_kph = telemetry_data.vehicle.speed() * 3.6
-                gear = telemetry_data.engine.gear()
-                throttle = tele_veh.mFilteredThrottle
-                brake = tele_veh.mFilteredBrake
-                steering = tele_veh.mFilteredSteering
-                pos = tele_veh.mPos
-                accel = tele_veh.mLocalAccel
-                elapsed_time = tele_veh.mElapsedTime
-                lap_number = tele_veh.mLapNumber
-                sector = telemetry_data.lap.sector_index()
-
-                # Additional requested data
-                lap_dist = scor_veh.mLapDist
-                path_lateral = scor_veh.mPathLateral
-                track_edge = scor_veh.mTrackEdge
-
-                # Lap validity: using CountLapFlag (0=invalid, 1/2=valid)
-                count_lap_flag = scor_veh.mCountLapFlag if hasattr(scor_veh, "mCountLapFlag") else 0
-                lap_valid = count_lap_flag in (1, 2)
-
-                # Per-wheel surface types (0=dry, 1=wet, 2=grass, 3=dirt, 4=gravel, 5=rumblestrip, 6=special)
-                surface_fl = tele_veh.mWheels[0].mSurfaceType  # Front Left
-                surface_fr = tele_veh.mWheels[1].mSurfaceType  # Front Right
-                surface_rl = tele_veh.mWheels[2].mSurfaceType  # Rear Left
-                surface_rr = tele_veh.mWheels[3].mSurfaceType  # Rear Right
-
-                # Collect data for CSV
-                sample = {
-                    "elapsed_time": elapsed_time,
-                    "lap_number": lap_number,
-                    "speed_kph": speed_kph,
-                    "gear": gear,
-                    "rpm": rpm,
-                    "throttle": throttle,
-                    "brake": brake,
-                    "steering": steering,
-                    "sector": sector,
-                    "pos_x": pos.x,
-                    "pos_y": pos.y,
-                    "pos_z": pos.z,
-                    "acc_x": accel.x,
-                    "acc_y": accel.y,
-                    "acc_z": accel.z,
-                    "lap_dist": lap_dist,
-                    "path_lateral": path_lateral,
-                    "track_edge": track_edge,
-                    "surface_fl": surface_fl,
-                    "surface_fr": surface_fr,
-                    "surface_rl": surface_rl,
-                    "surface_rr": surface_rr,
-                    "lap_valid": lap_valid,
-                }
-
-                lap_data.append(sample)
-
-                # Detect lap change to write CSV
-                if prev_lap_number is not None and lap_number != prev_lap_number:
+                # Detect lap change to write CSVs
+                if prev_lap_number is not None and current_lap != prev_lap_number:
                     # Check if the previous lap is valid
                     last_lap_time = rf2_sim.info.rf2ScorVeh().mLastLapTime
-                    lap_was_valid = lap_data and lap_data[-1].get("lap_valid", False)
-                    if last_lap_time and last_lap_time > 0 and lap_was_valid:
-                        csv_path = os.path.join(LOG_DIR, f"lap_{prev_lap_number}.csv")
-                        with open(csv_path, "w", newline="", encoding="utf-8") as csvfile:
-                            writer = csv.DictWriter(csvfile, fieldnames=SAMPLE_FIELDS)
-                            writer.writeheader()
-                            writer.writerows(lap_data)
-                        print(f"Saved telemetry for lap {prev_lap_number} to {csv_path}")
-                    else:
-                        print(f"Skipped lap {prev_lap_number} (invalid or no lap time)")
-                    lap_data.clear()
+                    if last_lap_time and last_lap_time > 0:
+                        # Write data for each class to its own CSV
+                        for class_name, data in class_data.items():
+                            if data:  # Only write if we have data
+                                csv_path = os.path.join(LOG_DIR, f"lap_{prev_lap_number}_{class_name}.csv")
+                                with open(csv_path, "w", newline="", encoding="utf-8") as csvfile:
+                                    # Get all possible fields from the data
+                                    fieldnames = set()
+                                    for entry in data:
+                                        fieldnames.update(entry.keys())
+                                    fieldnames = sorted(list(fieldnames))
+                                    
+                                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                                    writer.writeheader()
+                                    writer.writerows(data)
+                                print(f"Saved {class_name} telemetry for lap {prev_lap_number} to {csv_path}")
+                        
+                        # Clear the data after writing
+                        class_data = {class_name: [] for class_name in TELEMETRY_CLASSES.keys()}
 
-                prev_lap_number = lap_number
+                prev_lap_number = current_lap
 
-                # Option B: Get the entire raw telemetry data structure
-                # This is useful if you want to log EVERYTHING
-                raw_telemetry_struct = rf2_sim.info.rf2TeleVeh()
-
-                # Print a summary (first time) and always minimal info
+                # Print minimal info
                 if not first_struct_dumped:
                     print("--- Full Telemetry Struct Dump ---")
-                    for field_name, _ in raw_telemetry_struct._fields_:
-                        print(field_name, getattr(raw_telemetry_struct, field_name))
+                    for field_name, _ in rf2_sim.info.rf2TeleVeh()._fields_:
+                        print(field_name, getattr(rf2_sim.info.rf2TeleVeh(), field_name))
                     print("--- End Dump ---")
                     first_struct_dumped = True
 
                 print(
-                    f"RPM: {rpm}",
-                    f"Speed: {speed_kph:.1f} km/h",
-                    f"Gear: {gear}",
+                    f"RPM: {rf2_sim.info.rf2TeleVeh().mEngineRPM}",
+                    f"Speed: {rf2_sim.info.rf2TeleVeh().mLocalVel.z * 3.6:.1f} km/h",
+                    f"Gear: {rf2_sim.info.rf2TeleVeh().mGear}",
                 )
 
             time.sleep(0.1)
@@ -171,18 +179,22 @@ def run_logger():
         print("\nLogger stopped by user")
     finally:
         # Flush remaining lap data on exit
-        if lap_data and prev_lap_number is not None:
+        if prev_lap_number is not None:
             last_lap_time = rf2_sim.info.rf2ScorVeh().mLastLapTime
-            lap_was_valid = lap_data and lap_data[-1].get("lap_valid", False)
-            if last_lap_time and last_lap_time > 0 and lap_was_valid:
-                csv_path = os.path.join(LOG_DIR, f"lap_{prev_lap_number}.csv")
-                with open(csv_path, "w", newline="", encoding="utf-8") as csvfile:
-                    writer = csv.DictWriter(csvfile, fieldnames=SAMPLE_FIELDS)
-                    writer.writeheader()
-                    writer.writerows(lap_data)
-                print(f"Saved telemetry for lap {prev_lap_number} to {csv_path}")
-            else:
-                print(f"Skipped lap {prev_lap_number} (invalid or no lap time)")
+            if last_lap_time and last_lap_time > 0:
+                for class_name, data in class_data.items():
+                    if data:  # Only write if we have data
+                        csv_path = os.path.join(LOG_DIR, f"lap_{prev_lap_number}_{class_name}.csv")
+                        with open(csv_path, "w", newline="", encoding="utf-8") as csvfile:
+                            fieldnames = set()
+                            for entry in data:
+                                fieldnames.update(entry.keys())
+                            fieldnames = sorted(list(fieldnames))
+                            
+                            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                            writer.writeheader()
+                            writer.writerows(data)
+                        print(f"Saved {class_name} telemetry for lap {prev_lap_number} to {csv_path}")
 
         rf2_sim.stop()
 
