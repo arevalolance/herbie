@@ -7,7 +7,7 @@ export default async function Page() {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-svh">
+      <div className="flex items-center justify-center min-h-[calc(100vh-var(--header-height))]">
         <div className="flex flex-col items-center justify-center gap-4">
           <h1 className="text-2xl font-bold">Welcome to Herbie</h1>
           <p className="text-muted-foreground">Please sign in to continue</p>
@@ -25,7 +25,7 @@ export default async function Page() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-svh">
+    <div className="flex items-center justify-center min-h-[calc(100vh-var(--header-height))]">
       <div className="flex flex-col items-center justify-center gap-4">
         <h1 className="text-2xl font-bold">
           Welcome back{user.firstName ? `, ${user.firstName}` : ''}!
