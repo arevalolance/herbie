@@ -960,3 +960,35 @@ class Wheel(DataAdapter):
         """Whether all wheels are complete offroad"""
         wheel_data = self.info.rf2TeleVeh(index).mWheels
         return all(2 <= data.mSurfaceType <= 4 for data in wheel_data)
+
+
+class Server(DataAdapter):
+    """Server information (multiplayer)"""
+
+    __slots__ = ()
+
+    def game_mode(self) -> int:
+        """Game mode (1 = server, 2 = client, 3 = server & client)"""
+        return self.info.rf2ScorInfo.mGameMode
+
+    def is_password_protected(self) -> bool:
+        """Whether the server is password protected"""
+        return bool(self.info.rf2ScorInfo.mIsPasswordProtected)
+
+    def server_port(self) -> int:
+        """Server port (TCP/UDP)"""
+        return self.info.rf2ScorInfo.mServerPort
+
+    def server_public_ip(self) -> str:
+        """Public IP address of the server as dotted IPv4 string"""
+        import ipaddress
+        return str(ipaddress.IPv4Address(self.info.rf2ScorInfo.mServerPublicIP))
+
+    def max_players(self) -> int:
+        """Maximum number of players allowed"""
+        return self.info.rf2ScorInfo.mMaxPlayers
+
+    def server_name(self) -> str:
+        """Name of the server"""
+        from ..validator import bytes_to_str as tostr
+        return tostr(self.info.rf2ScorInfo.mServerName)
