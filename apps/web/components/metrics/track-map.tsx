@@ -22,6 +22,12 @@ export interface LapLine {
   color?: string
   /** Emphasise this lap with thicker stroke */
   highlight?: boolean
+  /**
+   * Whether this lap should respond to hover interactions.
+   * Defaults to true. Set to false for background/reference lines that
+   * should not trigger hover markers or callbacks.
+   */
+  interactive?: boolean
 }
 
 /**
@@ -63,6 +69,12 @@ export function TrackMap({
   onHover?: (info: { lapId: LapLine["id"]; index: number; point: LapPoint; canvas: { x: number; y: number } } | null) => void
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const miniMapRef = useRef<HTMLCanvasElement | null>(null)
+  const viewRef = useRef<{ zoom: number; panX: number; panY: number }>({
+    zoom: 1,
+    panX: 0,
+    panY: 0,
+  })
 
   // Store last computed transform + canvas points for quick lookup
   const pointsRef = useRef<{
@@ -73,7 +85,8 @@ export function TrackMap({
     scale?: number
     offsetX?: number
     offsetY?: number
-  }>({ canvasPts: [] })
+    worldBounds: { minX: number; maxX: number; minY: number; maxY: number }
+  }>({ canvasPts: [], worldBounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 } })
 
   // Helper to actually draw the scene (lines + optional marker)
   const drawScene = (
@@ -117,8 +130,8 @@ export function TrackMap({
     const offsetY = (cssH - worldH * scale) / 2 + maxY * scale
 
     const toCanvas = (p: { x: number; y: number }) => ({
-      x: p.x * scale + offsetX,
-      y: -p.y * scale + offsetY,
+      x: (p.x * scale + offsetX) * viewRef.current.zoom + viewRef.current.panX,
+      y: (-p.y * scale + offsetY) * viewRef.current.zoom + viewRef.current.panY,
     })
 
     ctx.clearRect(0, 0, cssW, cssH)
@@ -180,6 +193,7 @@ export function TrackMap({
       scale,
       offsetX,
       offsetY,
+      worldBounds: { minX, maxX, minY, maxY },
     }
 
     // Draw marker & tooltip if provided
@@ -216,6 +230,73 @@ export function TrackMap({
         lines.forEach((l, idx) => {
           ctx.fillText(l, boxX + 4, boxY + lineH * (idx + 1) - 2)
         })
+      }
+    }
+
+    // --------------------------------------------------------------
+    //  Draw minimap (simple overview with viewport rectangle)
+    // --------------------------------------------------------------
+    const mini = miniMapRef.current
+    if (mini) {
+      const mctx = mini.getContext("2d")
+      if (mctx) {
+        const { width: mCssW, height: mCssH } = mini.getBoundingClientRect()
+        const dpr2 = window.devicePixelRatio || 1
+        mini.width = Math.round(mCssW * dpr2)
+        mini.height = Math.round(mCssH * dpr2)
+        mctx.scale(dpr2, dpr2)
+
+        // fit entire track
+        const mPadding = 4
+        const mWorldW = worldW || 1
+        const mWorldH = worldH || 1
+        const mScale = Math.min(
+          (mCssW - mPadding * 2) / mWorldW,
+          (mCssH - mPadding * 2) / mWorldH
+        )
+        const mOffsetX = (mCssW - mWorldW * mScale) / 2 - minX * mScale
+        const mOffsetY = (mCssH - mWorldH * mScale) / 2 + maxY * mScale
+
+        const mToCanvas = (pt: { x: number; y: number }) => ({
+          x: pt.x * mScale + mOffsetX,
+          y: -pt.y * mScale + mOffsetY,
+        })
+
+        // clear
+        mctx.clearRect(0, 0, mCssW, mCssH)
+
+        // draw track path
+        if (trackPath && trackPath.length > 1) {
+          const tPts = trackPath.map(mToCanvas)
+          mctx.beginPath()
+          mctx.moveTo(tPts[0]!.x, tPts[0]!.y)
+          for (let i = 1; i < tPts.length; i++) {
+            const { x, y } = tPts[i]!
+            mctx.lineTo(x, y)
+          }
+          mctx.strokeStyle = trackColor
+          mctx.lineWidth = 2
+          mctx.lineCap = "round"
+          mctx.lineJoin = "round"
+          mctx.stroke()
+        }
+
+        // viewport rectangle
+        const v = viewRef.current
+        const topLeftWorld = {
+          x: ((0 - v.panX) / v.zoom - offsetX) / scale,
+          y: -(((0 - v.panY) / v.zoom - offsetY) / scale),
+        }
+        const bottomRightWorld = {
+          x: (((cssW) - v.panX) / v.zoom - offsetX) / scale,
+          y: -(((cssH) - v.panY) / v.zoom - offsetY) / scale,
+        }
+
+        const tl = mToCanvas(topLeftWorld)
+        const br = mToCanvas(bottomRightWorld)
+        mctx.strokeStyle = "#fff"
+        mctx.lineWidth = 1
+        mctx.strokeRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y)
       }
     }
   }
@@ -255,6 +336,8 @@ export function TrackMap({
       let bestDist = Infinity
       let best: HoverHit | null = null
       canvasPts.forEach((arr, li) => {
+        // Skip laps that are flagged as non-interactive
+        if (laps[li] && laps[li]!.interactive === false) return
         for (let pi = 0; pi < arr.length; pi++) {
           const p = arr[pi]!
           const dx = p.x - x
@@ -296,9 +379,113 @@ export function TrackMap({
     }
   }, [laps, hoverRadius, showHoverMarker, onHover])
 
+  // ------------------------------------------------------------------------
+  //  Zoom / pan controls (wheel + drag + buttons)
+  // ------------------------------------------------------------------------
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    // Wheel zoom
+    function handleWheel(ev: WheelEvent) {
+      if (!canvas) return
+      ev.preventDefault()
+      const rect = canvas.getBoundingClientRect()
+      const cx = ev.clientX - rect.left
+      const cy = ev.clientY - rect.top
+
+      const view = viewRef.current
+      const factor = ev.deltaY < 0 ? 1.1 : 0.9
+      const newZoom = Math.max(0.2, Math.min(view.zoom * factor, 10))
+
+      // adjust pan so cursor stays in same world position
+      view.panX = cx - ((cx - view.panX) * (newZoom / view.zoom))
+      view.panY = cy - ((cy - view.panY) * (newZoom / view.zoom))
+      view.zoom = newZoom
+
+      drawScene()
+    }
+
+    // Drag pan
+    let dragging = false
+    let lastX = 0
+    let lastY = 0
+    function handleDown(ev: MouseEvent) {
+      if (ev.button !== 0) return
+      dragging = true
+      lastX = ev.clientX
+      lastY = ev.clientY
+    }
+    function handleMove(ev: MouseEvent) {
+      if (!dragging) return
+      const dx = ev.clientX - lastX
+      const dy = ev.clientY - lastY
+      lastX = ev.clientX
+      lastY = ev.clientY
+      const view = viewRef.current
+      view.panX += dx
+      view.panY += dy
+      drawScene()
+    }
+    function handleUp() {
+      dragging = false
+    }
+
+    canvas.addEventListener("wheel", handleWheel, { passive: false })
+    canvas.addEventListener("mousedown", handleDown)
+    window.addEventListener("mousemove", handleMove)
+    window.addEventListener("mouseup", handleUp)
+
+    return () => {
+      canvas.removeEventListener("wheel", handleWheel)
+      canvas.removeEventListener("mousedown", handleDown)
+      window.removeEventListener("mousemove", handleMove)
+      window.removeEventListener("mouseup", handleUp)
+    }
+  }, [])
+
+  // helper to change zoom from buttons
+  const changeZoom = (mult: number) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    const cx = rect.width / 2
+    const cy = rect.height / 2
+    const view = viewRef.current
+    const newZoom = Math.max(0.2, Math.min(view.zoom * mult, 10))
+    view.panX = cx - ((cx - view.panX) * (newZoom / view.zoom))
+    view.panY = cy - ((cy - view.panY) * (newZoom / view.zoom))
+    view.zoom = newZoom
+    drawScene()
+  }
+
   return (
-    <div className={className ?? "w-full h-full"}>
+    <div className={className ?? "w-full h-full relative select-none"}>
+      {/* Main drawing canvas */}
       <canvas ref={canvasRef} className="w-full h-full" />
+
+      {/* Zoom controls */}
+      <div className="absolute top-2 left-2 flex flex-col bg-gray-800/70 rounded text-white">
+        <button
+          className="px-2 py-1 hover:bg-gray-700"
+          onClick={() => changeZoom(1.25)}
+        >
+          +
+        </button>
+        <button
+          className="px-2 py-1 hover:bg-gray-700 border-t border-gray-700"
+          onClick={() => changeZoom(0.8)}
+        >
+          −
+        </button>
+      </div>
+
+      {/* Mini-map overview */}
+      <canvas
+        ref={miniMapRef}
+        className="absolute bottom-2 left-2 w-28 h-28 rounded bg-gray-800/70"
+      />
     </div>
   )
 } 
