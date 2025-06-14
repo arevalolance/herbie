@@ -286,7 +286,9 @@ async function seedData(userId: string, csvDirectory: string) {
         brake: safeFloat(lapClasses.inputs?.[i]?.brake),
         clutch: safeFloat(lapClasses.inputs?.[i]?.clutch),
         steering: safeFloat(lapClasses.inputs?.[i]?.steering),
-        fuel: safeFloat(vehicleData.fuel)
+        fuel: safeFloat(vehicleData.fuel),
+        track_edge: safeFloat(vehicleData.track_edge),
+        path_lateral: safeFloat(vehicleData.path_lateral)
       });
       
       // Prepare engine data

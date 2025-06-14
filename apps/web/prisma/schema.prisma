@@ -1,439 +1,441 @@
 generator client {
-  provider = "prisma-client-js"
-  output   = "../generated/prisma"
+	provider = "prisma-client-js"
+	output   = "../generated/prisma"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+	provider = "postgresql"
+	url      = env("DATABASE_URL")
 }
 
 model brake_data {
-  id               Int             @id @default(autoincrement())
-  telemetry_log_id BigInt?
-  bias_front       Float?          @db.Real
-  pressure_fl      Float?          @db.Real
-  pressure_fr      Float?          @db.Real
-  pressure_rl      Float?          @db.Real
-  pressure_rr      Float?          @db.Real
-  temperature_fl   Float?          @db.Real
-  temperature_fr   Float?          @db.Real
-  temperature_rl   Float?          @db.Real
-  temperature_rr   Float?          @db.Real
-  telemetry_logs   telemetry_logs? @relation(fields: [telemetry_log_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "brake_data_telemetry_log_id_telemetry_logs_id_fk")
+	id               Int             @id @default(autoincrement())
+	telemetry_log_id BigInt?
+	bias_front       Float?          @db.Real
+	pressure_fl      Float?          @db.Real
+	pressure_fr      Float?          @db.Real
+	pressure_rl      Float?          @db.Real
+	pressure_rr      Float?          @db.Real
+	temperature_fl   Float?          @db.Real
+	temperature_fr   Float?          @db.Real
+	temperature_rl   Float?          @db.Real
+	temperature_rr   Float?          @db.Real
+	telemetry_logs   telemetry_logs? @relation(fields: [telemetry_log_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "brake_data_telemetry_log_id_telemetry_logs_id_fk")
 }
 
 model electric_motor_data {
-  id                Int             @id @default(autoincrement())
-  telemetry_log_id  BigInt?
-  state             Int?
-  battery_charge    Float?          @db.Real
-  rpm               Float?          @db.Real
-  torque            Float?          @db.Real
-  motor_temperature Float?          @db.Real
-  water_temperature Float?          @db.Real
-  telemetry_logs    telemetry_logs? @relation(fields: [telemetry_log_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "electric_motor_data_telemetry_log_id_telemetry_logs_id_fk")
+	id                Int             @id @default(autoincrement())
+	telemetry_log_id  BigInt?
+	state             Int?
+	battery_charge    Float?          @db.Real
+	rpm               Float?          @db.Real
+	torque            Float?          @db.Real
+	motor_temperature Float?          @db.Real
+	water_temperature Float?          @db.Real
+	telemetry_logs    telemetry_logs? @relation(fields: [telemetry_log_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "electric_motor_data_telemetry_log_id_telemetry_logs_id_fk")
 }
 
 model engine_data {
-  id                Int             @id @default(autoincrement())
-  telemetry_log_id  BigInt?
-  gear              Int?
-  max_gear          Int?
-  rpm               Float?          @db.Real
-  max_rpm           Float?          @db.Real
-  torque            Float?          @db.Real
-  turbo_boost       Float?          @db.Real
-  oil_temperature   Float?          @db.Real
-  water_temperature Float?          @db.Real
-  telemetry_logs    telemetry_logs? @relation(fields: [telemetry_log_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "engine_data_telemetry_log_id_telemetry_logs_id_fk")
+	id                Int             @id @default(autoincrement())
+	telemetry_log_id  BigInt?
+	gear              Int?
+	max_gear          Int?
+	rpm               Float?          @db.Real
+	max_rpm           Float?          @db.Real
+	torque            Float?          @db.Real
+	turbo_boost       Float?          @db.Real
+	oil_temperature   Float?          @db.Real
+	water_temperature Float?          @db.Real
+	telemetry_logs    telemetry_logs? @relation(fields: [telemetry_log_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "engine_data_telemetry_log_id_telemetry_logs_id_fk")
 }
 
 model input_data {
-  id                      Int             @id @default(autoincrement())
-  telemetry_log_id        BigInt?
-  throttle                Float?          @db.Real
-  throttle_raw            Float?          @db.Real
-  brake                   Float?          @db.Real
-  brake_raw               Float?          @db.Real
-  clutch                  Float?          @db.Real
-  clutch_raw              Float?          @db.Real
-  steering                Float?          @db.Real
-  steering_raw            Float?          @db.Real
-  steering_shaft_torque   Float?          @db.Real
-  steering_range_physical Float?          @db.Real
-  steering_range_visual   Float?          @db.Real
-  force_feedback          Float?          @db.Real
-  telemetry_logs          telemetry_logs? @relation(fields: [telemetry_log_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "input_data_telemetry_log_id_telemetry_logs_id_fk")
+	id                      Int             @id @default(autoincrement())
+	telemetry_log_id        BigInt?
+	throttle                Float?          @db.Real
+	throttle_raw            Float?          @db.Real
+	brake                   Float?          @db.Real
+	brake_raw               Float?          @db.Real
+	clutch                  Float?          @db.Real
+	clutch_raw              Float?          @db.Real
+	steering                Float?          @db.Real
+	steering_raw            Float?          @db.Real
+	steering_shaft_torque   Float?          @db.Real
+	steering_range_physical Float?          @db.Real
+	steering_range_visual   Float?          @db.Real
+	force_feedback          Float?          @db.Real
+	telemetry_logs          telemetry_logs? @relation(fields: [telemetry_log_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "input_data_telemetry_log_id_telemetry_logs_id_fk")
 }
 
 model lap_comparisons {
-  id          Int       @id @default(autoincrement())
-  user_id     String    @db.VarChar(255)
-  title       String    @db.VarChar(255)
-  description String?
-  lap_ids     String    @db.VarChar(1000)
-  created_at  DateTime? @default(now()) @db.Timestamp(6)
-  users       users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "lap_comparisons_user_id_users_id_fk")
+	id          Int       @id @default(autoincrement())
+	user_id     String    @db.VarChar(255)
+	title       String    @db.VarChar(255)
+	description String?
+	lap_ids     String    @db.VarChar(1000)
+	created_at  DateTime? @default(now()) @db.Timestamp(6)
+	users       users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "lap_comparisons_user_id_users_id_fk")
 
-  @@index([user_id], map: "user_comparisons_idx")
+	@@index([user_id], map: "user_comparisons_idx")
 }
 
 model lap_summary {
-  id                 Int       @id @default(autoincrement())
-  lap_id             Int       @unique(map: "lap_summary_lap_id_unique")
-  max_speed          Float?    @db.Real
-  avg_speed          Float?    @db.Real
-  min_speed          Float?    @db.Real
-  max_rpm            Float?    @db.Real
-  avg_rpm            Float?    @db.Real
-  max_throttle       Float?    @db.Real
-  avg_throttle       Float?    @db.Real
-  max_brake          Float?    @db.Real
-  avg_brake          Float?    @db.Real
-  max_lateral_g      Float?    @db.Real
-  max_longitudinal_g Float?    @db.Real
-  max_vertical_g     Float?    @db.Real
-  max_tire_temp      Float?    @db.Real
-  avg_tire_temp      Float?    @db.Real
-  max_tire_pressure  Float?    @db.Real
-  avg_tire_pressure  Float?    @db.Real
-  fuel_used          Float?    @db.Real
-  fuel_starting      Float?    @db.Real
-  fuel_ending        Float?    @db.Real
-  distance_covered   Float?    @db.Real
-  created_at         DateTime? @default(now()) @db.Timestamp(6)
-  laps               laps      @relation(fields: [lap_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "lap_summary_lap_id_laps_id_fk")
+	id                 Int       @id @default(autoincrement())
+	lap_id             Int       @unique(map: "lap_summary_lap_id_unique")
+	max_speed          Float?    @db.Real
+	avg_speed          Float?    @db.Real
+	min_speed          Float?    @db.Real
+	max_rpm            Float?    @db.Real
+	avg_rpm            Float?    @db.Real
+	max_throttle       Float?    @db.Real
+	avg_throttle       Float?    @db.Real
+	max_brake          Float?    @db.Real
+	avg_brake          Float?    @db.Real
+	max_lateral_g      Float?    @db.Real
+	max_longitudinal_g Float?    @db.Real
+	max_vertical_g     Float?    @db.Real
+	max_tire_temp      Float?    @db.Real
+	avg_tire_temp      Float?    @db.Real
+	max_tire_pressure  Float?    @db.Real
+	avg_tire_pressure  Float?    @db.Real
+	fuel_used          Float?    @db.Real
+	fuel_starting      Float?    @db.Real
+	fuel_ending        Float?    @db.Real
+	distance_covered   Float?    @db.Real
+	created_at         DateTime? @default(now()) @db.Timestamp(6)
+	laps               laps      @relation(fields: [lap_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "lap_summary_lap_id_laps_id_fk")
 }
 
 model laps {
-  id               Int              @id @default(autoincrement())
-  user_id          String           @db.VarChar(255)
-  session_id       Int
-  vehicle_id       Int
-  lap_number       Int
-  title            String?          @db.VarChar(255)
-  description      String?
-  tags             String?          @db.VarChar(500)
-  lap_time         Float?           @db.Real
-  sector1_time     Float?           @db.Real
-  sector2_time     Float?           @db.Real
-  sector3_time     Float?           @db.Real
-  is_valid         Boolean?         @default(true)
-  is_personal_best Boolean?         @default(false)
-  lap_start_time   DateTime         @db.Timestamp(6)
-  lap_end_time     DateTime?        @db.Timestamp(6)
-  track_temp       Float?           @db.Real
-  ambient_temp     Float?           @db.Real
-  wetness          Float?           @db.Real
-  created_at       DateTime?        @default(now()) @db.Timestamp(6)
-  updated_at       DateTime?        @default(now()) @db.Timestamp(6)
-  lap_summary      lap_summary?
-  sessions         sessions         @relation(fields: [session_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "laps_session_id_sessions_id_fk")
-  users            users            @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "laps_user_id_users_id_fk")
-  vehicles         vehicles         @relation(fields: [vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "laps_vehicle_id_vehicles_id_fk")
-  telemetry_logs   telemetry_logs[]
-  timing_data      timing_data[]
+	id               Int              @id @default(autoincrement())
+	user_id          String           @db.VarChar(255)
+	session_id       Int
+	vehicle_id       Int
+	lap_number       Int
+	title            String?          @db.VarChar(255)
+	description      String?
+	tags             String?          @db.VarChar(500)
+	lap_time         Float?           @db.Real
+	sector1_time     Float?           @db.Real
+	sector2_time     Float?           @db.Real
+	sector3_time     Float?           @db.Real
+	is_valid         Boolean?         @default(true)
+	is_personal_best Boolean?         @default(false)
+	lap_start_time   DateTime         @db.Timestamp(6)
+	lap_end_time     DateTime?        @db.Timestamp(6)
+	track_temp       Float?           @db.Real
+	ambient_temp     Float?           @db.Real
+	wetness          Float?           @db.Real
+	created_at       DateTime?        @default(now()) @db.Timestamp(6)
+	updated_at       DateTime?        @default(now()) @db.Timestamp(6)
+	lap_summary      lap_summary?
+	sessions         sessions         @relation(fields: [session_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "laps_session_id_sessions_id_fk")
+	users            users            @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "laps_user_id_users_id_fk")
+	vehicles         vehicles         @relation(fields: [vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "laps_vehicle_id_vehicles_id_fk")
+	telemetry_logs   telemetry_logs[]
+	timing_data      timing_data[]
 
-  @@index([session_id, lap_time], map: "lap_lap_time_idx")
-  @@index([user_id, is_personal_best], map: "personal_best_idx")
-  @@index([user_id, session_id, lap_number], map: "user_lap_idx")
+	@@index([session_id, lap_time], map: "lap_lap_time_idx")
+	@@index([user_id, is_personal_best], map: "personal_best_idx")
+	@@index([user_id, session_id, lap_number], map: "user_lap_idx")
 }
 
 model session_conditions {
-  id                  Int       @id @default(autoincrement())
-  session_id          Int?
-  timestamp           DateTime  @db.Timestamp(6)
-  track_temperature   Float?    @db.Real
-  ambient_temperature Float?    @db.Real
-  raininess           Float?    @db.Real
-  wetness_minimum     Float?    @db.Real
-  wetness_maximum     Float?    @db.Real
-  wetness_average     Float?    @db.Real
-  game_phase          Int?
-  in_countdown        Boolean?
-  in_formation        Boolean?
-  pit_open            Boolean?
-  green_flag          Boolean?
-  yellow_flag         Boolean?
-  start_lights        Int?
-  sessions            sessions? @relation(fields: [session_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "session_conditions_session_id_sessions_id_fk")
+	id                  Int       @id @default(autoincrement())
+	session_id          Int?
+	timestamp           DateTime  @db.Timestamp(6)
+	track_temperature   Float?    @db.Real
+	ambient_temperature Float?    @db.Real
+	raininess           Float?    @db.Real
+	wetness_minimum     Float?    @db.Real
+	wetness_maximum     Float?    @db.Real
+	wetness_average     Float?    @db.Real
+	game_phase          Int?
+	in_countdown        Boolean?
+	in_formation        Boolean?
+	pit_open            Boolean?
+	green_flag          Boolean?
+	yellow_flag         Boolean?
+	start_lights        Int?
+	sessions            sessions? @relation(fields: [session_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "session_conditions_session_id_sessions_id_fk")
 
-  @@index([session_id, timestamp], map: "session_conditions_idx")
+	@@index([session_id, timestamp], map: "session_conditions_idx")
 }
 
 model sessions {
-  id                 Int                  @id @default(autoincrement())
-  user_id            String               @db.VarChar(255)
-  session_stamp      BigInt
-  session_type       Int
-  track_name         String?              @db.VarChar(255)
-  combo_id           String?              @db.VarChar(255)
-  track_id           String?              @db.VarChar(255)
-  sim_name           String?              @db.VarChar(50)
-  api_version        String?              @db.VarChar(50)
-  session_length     Float?               @db.Real
-  max_laps           Int?
-  is_lap_type        Boolean?
-  title              String?              @db.VarChar(255)
-  description        String?
-  created_at         DateTime?            @default(now()) @db.Timestamp(6)
-  laps               laps[]
-  session_conditions session_conditions[]
-  users              users                @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sessions_user_id_users_id_fk")
-  vehicles           vehicles[]
+	id                 Int                  @id @default(autoincrement())
+	user_id            String               @db.VarChar(255)
+	session_stamp      BigInt
+	session_type       Int
+	track_name         String?              @db.VarChar(255)
+	combo_id           String?              @db.VarChar(255)
+	track_id           String?              @db.VarChar(255)
+	sim_name           String?              @db.VarChar(50)
+	api_version        String?              @db.VarChar(50)
+	session_length     Float?               @db.Real
+	max_laps           Int?
+	is_lap_type        Boolean?
+	title              String?              @db.VarChar(255)
+	description        String?
+	created_at         DateTime?            @default(now()) @db.Timestamp(6)
+	laps               laps[]
+	session_conditions session_conditions[]
+	users              users                @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sessions_user_id_users_id_fk")
+	vehicles           vehicles[]
 
-  @@index([user_id, session_stamp], map: "user_session_idx")
+	@@index([user_id, session_stamp], map: "user_session_idx")
 }
 
 model switch_states {
-  id               Int             @id @default(autoincrement())
-  telemetry_log_id BigInt?
-  headlights       Int?
-  ignition_starter Int?
-  speed_limiter    Int?
-  drs_status       Int?
-  auto_clutch      Boolean?
-  telemetry_logs   telemetry_logs? @relation(fields: [telemetry_log_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "switch_states_telemetry_log_id_telemetry_logs_id_fk")
+	id               Int             @id @default(autoincrement())
+	telemetry_log_id BigInt?
+	headlights       Int?
+	ignition_starter Int?
+	speed_limiter    Int?
+	drs_status       Int?
+	auto_clutch      Boolean?
+	telemetry_logs   telemetry_logs? @relation(fields: [telemetry_log_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "switch_states_telemetry_log_id_telemetry_logs_id_fk")
 }
 
 model telemetry_logs {
-  id                      BigInt                    @id
-  lap_id                  Int
-  timestamp               DateTime                  @db.Timestamp(6)
-  session_elapsed         Float?                    @db.Real
-  lap_progress            Float?                    @db.Real
-  position_x              Float?                    @db.Real
-  position_y              Float?                    @db.Real
-  position_z              Float?                    @db.Real
-  orientation_yaw         Float?                    @db.Real
-  speed                   Float?                    @db.Real
-  accel_lateral           Float?                    @db.Real
-  accel_longitudinal      Float?                    @db.Real
-  accel_vertical          Float?                    @db.Real
-  velocity_lateral        Float?                    @db.Real
-  velocity_longitudinal   Float?                    @db.Real
-  velocity_vertical       Float?                    @db.Real
-  gear                    Int?
-  rpm                     Float?                    @db.Real
-  throttle                Float?                    @db.Real
-  brake                   Float?                    @db.Real
-  clutch                  Float?                    @db.Real
-  steering                Float?                    @db.Real
-  fuel                    Float?                    @db.Real
-  brake_data              brake_data[]
-  electric_motor_data     electric_motor_data[]
-  engine_data             engine_data[]
-  input_data              input_data[]
-  switch_states           switch_states[]
-  laps                    laps                      @relation(fields: [lap_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "telemetry_logs_lap_id_laps_id_fk")
-  tyre_data               tyre_data[]
-  tyre_temperature_detail tyre_temperature_detail[]
-  vehicle_state           vehicle_state[]
-  wheel_data              wheel_data[]
+	id                      BigInt                    @id
+	lap_id                  Int
+	timestamp               DateTime                  @db.Timestamp(6)
+	session_elapsed         Float?                    @db.Real
+	lap_progress            Float?                    @db.Real
+	position_x              Float?                    @db.Real
+	position_y              Float?                    @db.Real
+	position_z              Float?                    @db.Real
+	orientation_yaw         Float?                    @db.Real
+	speed                   Float?                    @db.Real
+	accel_lateral           Float?                    @db.Real
+	accel_longitudinal      Float?                    @db.Real
+	accel_vertical          Float?                    @db.Real
+	velocity_lateral        Float?                    @db.Real
+	velocity_longitudinal   Float?                    @db.Real
+	velocity_vertical       Float?                    @db.Real
+	gear                    Int?
+	rpm                     Float?                    @db.Real
+	throttle                Float?                    @db.Real
+	brake                   Float?                    @db.Real
+	clutch                  Float?                    @db.Real
+	steering                Float?                    @db.Real
+	fuel                    Float?                    @db.Real
+	brake_data              brake_data[]
+	electric_motor_data     electric_motor_data[]
+	engine_data             engine_data[]
+	input_data              input_data[]
+	switch_states           switch_states[]
+	laps                    laps                      @relation(fields: [lap_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "telemetry_logs_lap_id_laps_id_fk")
+	tyre_data               tyre_data[]
+	tyre_temperature_detail tyre_temperature_detail[]
+	vehicle_state           vehicle_state[]
+	wheel_data              wheel_data[]
+	track_edge              Float?                    @db.Real
+	path_lateral            Float?                    @db.Real
 
-  @@index([lap_id, lap_progress], map: "lap_progress_idx")
-  @@index([lap_id, timestamp], map: "telemetry_timestamp_idx")
+	@@index([lap_id, lap_progress], map: "lap_progress_idx")
+	@@index([lap_id, timestamp], map: "telemetry_timestamp_idx")
 }
 
 model timing_data {
-  id                     Int    @id @default(autoincrement())
-  lap_id                 Int
-  sector1_time           Float? @db.Real
-  sector2_time           Float? @db.Real
-  sector3_time           Float? @db.Real
-  sector1_best           Float? @db.Real
-  sector2_best           Float? @db.Real
-  sector3_best           Float? @db.Real
-  delta_to_personal_best Float? @db.Real
-  delta_to_session_best  Float? @db.Real
-  start_position         Int?
-  end_position           Int?
-  laps                   laps   @relation(fields: [lap_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "timing_data_lap_id_laps_id_fk")
+	id                     Int    @id @default(autoincrement())
+	lap_id                 Int
+	sector1_time           Float? @db.Real
+	sector2_time           Float? @db.Real
+	sector3_time           Float? @db.Real
+	sector1_best           Float? @db.Real
+	sector2_best           Float? @db.Real
+	sector3_best           Float? @db.Real
+	delta_to_personal_best Float? @db.Real
+	delta_to_session_best  Float? @db.Real
+	start_position         Int?
+	end_position           Int?
+	laps                   laps   @relation(fields: [lap_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "timing_data_lap_id_laps_id_fk")
 
-  @@index([lap_id], map: "lap_timing_idx")
+	@@index([lap_id], map: "lap_timing_idx")
 }
 
 model tyre_data {
-  id                  Int             @id @default(autoincrement())
-  telemetry_log_id    BigInt?
-  compound_front      Int?
-  compound_rear       Int?
-  compound_name_front String?         @db.VarChar(100)
-  compound_name_rear  String?         @db.VarChar(100)
-  surface_temp_fl     Float?          @db.Real
-  surface_temp_fr     Float?          @db.Real
-  surface_temp_rl     Float?          @db.Real
-  surface_temp_rr     Float?          @db.Real
-  inner_temp_fl       Float?          @db.Real
-  inner_temp_fr       Float?          @db.Real
-  inner_temp_rl       Float?          @db.Real
-  inner_temp_rr       Float?          @db.Real
-  pressure_fl         Float?          @db.Real
-  pressure_fr         Float?          @db.Real
-  pressure_rl         Float?          @db.Real
-  pressure_rr         Float?          @db.Real
-  load_fl             Float?          @db.Real
-  load_fr             Float?          @db.Real
-  load_rl             Float?          @db.Real
-  load_rr             Float?          @db.Real
-  wear_fl             Float?          @db.Real
-  wear_fr             Float?          @db.Real
-  wear_rl             Float?          @db.Real
-  wear_rr             Float?          @db.Real
-  carcass_temp_fl     Float?          @db.Real
-  carcass_temp_fr     Float?          @db.Real
-  carcass_temp_rl     Float?          @db.Real
-  carcass_temp_rr     Float?          @db.Real
-  telemetry_logs      telemetry_logs? @relation(fields: [telemetry_log_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "tyre_data_telemetry_log_id_telemetry_logs_id_fk")
+	id                  Int             @id @default(autoincrement())
+	telemetry_log_id    BigInt?
+	compound_front      Int?
+	compound_rear       Int?
+	compound_name_front String?         @db.VarChar(100)
+	compound_name_rear  String?         @db.VarChar(100)
+	surface_temp_fl     Float?          @db.Real
+	surface_temp_fr     Float?          @db.Real
+	surface_temp_rl     Float?          @db.Real
+	surface_temp_rr     Float?          @db.Real
+	inner_temp_fl       Float?          @db.Real
+	inner_temp_fr       Float?          @db.Real
+	inner_temp_rl       Float?          @db.Real
+	inner_temp_rr       Float?          @db.Real
+	pressure_fl         Float?          @db.Real
+	pressure_fr         Float?          @db.Real
+	pressure_rl         Float?          @db.Real
+	pressure_rr         Float?          @db.Real
+	load_fl             Float?          @db.Real
+	load_fr             Float?          @db.Real
+	load_rl             Float?          @db.Real
+	load_rr             Float?          @db.Real
+	wear_fl             Float?          @db.Real
+	wear_fr             Float?          @db.Real
+	wear_rl             Float?          @db.Real
+	wear_rr             Float?          @db.Real
+	carcass_temp_fl     Float?          @db.Real
+	carcass_temp_fr     Float?          @db.Real
+	carcass_temp_rl     Float?          @db.Real
+	carcass_temp_rr     Float?          @db.Real
+	telemetry_logs      telemetry_logs? @relation(fields: [telemetry_log_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "tyre_data_telemetry_log_id_telemetry_logs_id_fk")
 }
 
 model tyre_temperature_detail {
-  id                     Int             @id @default(autoincrement())
-  telemetry_log_id       BigInt?
-  surface_temp_fl_inner  Float?          @db.Real
-  surface_temp_fl_center Float?          @db.Real
-  surface_temp_fl_outer  Float?          @db.Real
-  surface_temp_fr_inner  Float?          @db.Real
-  surface_temp_fr_center Float?          @db.Real
-  surface_temp_fr_outer  Float?          @db.Real
-  surface_temp_rl_inner  Float?          @db.Real
-  surface_temp_rl_center Float?          @db.Real
-  surface_temp_rl_outer  Float?          @db.Real
-  surface_temp_rr_inner  Float?          @db.Real
-  surface_temp_rr_center Float?          @db.Real
-  surface_temp_rr_outer  Float?          @db.Real
-  inner_temp_fl_inner    Float?          @db.Real
-  inner_temp_fl_center   Float?          @db.Real
-  inner_temp_fl_outer    Float?          @db.Real
-  inner_temp_fr_inner    Float?          @db.Real
-  inner_temp_fr_center   Float?          @db.Real
-  inner_temp_fr_outer    Float?          @db.Real
-  inner_temp_rl_inner    Float?          @db.Real
-  inner_temp_rl_center   Float?          @db.Real
-  inner_temp_rl_outer    Float?          @db.Real
-  inner_temp_rr_inner    Float?          @db.Real
-  inner_temp_rr_center   Float?          @db.Real
-  inner_temp_rr_outer    Float?          @db.Real
-  telemetry_logs         telemetry_logs? @relation(fields: [telemetry_log_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "tyre_temperature_detail_telemetry_log_id_telemetry_logs_id_fk")
+	id                     Int             @id @default(autoincrement())
+	telemetry_log_id       BigInt?
+	surface_temp_fl_inner  Float?          @db.Real
+	surface_temp_fl_center Float?          @db.Real
+	surface_temp_fl_outer  Float?          @db.Real
+	surface_temp_fr_inner  Float?          @db.Real
+	surface_temp_fr_center Float?          @db.Real
+	surface_temp_fr_outer  Float?          @db.Real
+	surface_temp_rl_inner  Float?          @db.Real
+	surface_temp_rl_center Float?          @db.Real
+	surface_temp_rl_outer  Float?          @db.Real
+	surface_temp_rr_inner  Float?          @db.Real
+	surface_temp_rr_center Float?          @db.Real
+	surface_temp_rr_outer  Float?          @db.Real
+	inner_temp_fl_inner    Float?          @db.Real
+	inner_temp_fl_center   Float?          @db.Real
+	inner_temp_fl_outer    Float?          @db.Real
+	inner_temp_fr_inner    Float?          @db.Real
+	inner_temp_fr_center   Float?          @db.Real
+	inner_temp_fr_outer    Float?          @db.Real
+	inner_temp_rl_inner    Float?          @db.Real
+	inner_temp_rl_center   Float?          @db.Real
+	inner_temp_rl_outer    Float?          @db.Real
+	inner_temp_rr_inner    Float?          @db.Real
+	inner_temp_rr_center   Float?          @db.Real
+	inner_temp_rr_outer    Float?          @db.Real
+	telemetry_logs         telemetry_logs? @relation(fields: [telemetry_log_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "tyre_temperature_detail_telemetry_log_id_telemetry_logs_id_fk")
 }
 
 model users {
-  id                  String            @id @db.VarChar(255)
-  workos_user_id      String            @unique(map: "users_workos_user_id_unique") @db.VarChar(255)
-  organization_id     String?           @db.VarChar(255)
-  email               String            @db.VarChar(255)
-  name                String?           @db.VarChar(255)
-  first_name          String?           @db.VarChar(255)
-  last_name           String?           @db.VarChar(255)
-  profile_picture_url String?           @db.VarChar(500)
-  created_at          DateTime?         @default(now()) @db.Timestamp(6)
-  updated_at          DateTime?         @default(now()) @db.Timestamp(6)
-  lap_comparisons     lap_comparisons[]
-  laps                laps[]
-  sessions            sessions[]
+	id                  String            @id @db.VarChar(255)
+	workos_user_id      String            @unique(map: "users_workos_user_id_unique") @db.VarChar(255)
+	organization_id     String?           @db.VarChar(255)
+	email               String            @db.VarChar(255)
+	name                String?           @db.VarChar(255)
+	first_name          String?           @db.VarChar(255)
+	last_name           String?           @db.VarChar(255)
+	profile_picture_url String?           @db.VarChar(500)
+	created_at          DateTime?         @default(now()) @db.Timestamp(6)
+	updated_at          DateTime?         @default(now()) @db.Timestamp(6)
+	lap_comparisons     lap_comparisons[]
+	laps                laps[]
+	sessions            sessions[]
 
-  @@index([organization_id], map: "organization_idx")
-  @@index([workos_user_id], map: "workos_user_idx")
+	@@index([organization_id], map: "organization_idx")
+	@@index([workos_user_id], map: "workos_user_idx")
 }
 
 model vehicle_state {
-  id                     Int             @id @default(autoincrement())
-  telemetry_log_id       BigInt?
-  place                  Int?
-  qualification          Int?
-  in_pits                Boolean?
-  in_garage              Boolean?
-  num_pitstops           Int?
-  pit_request            Boolean?
-  num_penalties          Int?
-  finish_state           Int?
-  fuel                   Float?          @db.Real
-  tank_capacity          Float?          @db.Real
-  downforce_front        Float?          @db.Real
-  downforce_rear         Float?          @db.Real
-  damage_severity_1      Int?
-  damage_severity_2      Int?
-  damage_severity_3      Int?
-  damage_severity_4      Int?
-  damage_severity_5      Int?
-  damage_severity_6      Int?
-  damage_severity_7      Int?
-  damage_severity_8      Int?
-  is_detached            Boolean?
-  last_impact_time       Float?          @db.Real
-  last_impact_magnitude  Float?          @db.Real
-  last_impact_position_x Float?          @db.Real
-  last_impact_position_y Float?          @db.Real
-  telemetry_logs         telemetry_logs? @relation(fields: [telemetry_log_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_state_telemetry_log_id_telemetry_logs_id_fk")
+	id                     Int             @id @default(autoincrement())
+	telemetry_log_id       BigInt?
+	place                  Int?
+	qualification          Int?
+	in_pits                Boolean?
+	in_garage              Boolean?
+	num_pitstops           Int?
+	pit_request            Boolean?
+	num_penalties          Int?
+	finish_state           Int?
+	fuel                   Float?          @db.Real
+	tank_capacity          Float?          @db.Real
+	downforce_front        Float?          @db.Real
+	downforce_rear         Float?          @db.Real
+	damage_severity_1      Int?
+	damage_severity_2      Int?
+	damage_severity_3      Int?
+	damage_severity_4      Int?
+	damage_severity_5      Int?
+	damage_severity_6      Int?
+	damage_severity_7      Int?
+	damage_severity_8      Int?
+	is_detached            Boolean?
+	last_impact_time       Float?          @db.Real
+	last_impact_magnitude  Float?          @db.Real
+	last_impact_position_x Float?          @db.Real
+	last_impact_position_y Float?          @db.Real
+	telemetry_logs         telemetry_logs? @relation(fields: [telemetry_log_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_state_telemetry_log_id_telemetry_logs_id_fk")
 }
 
 model vehicles {
-  id           Int       @id @default(autoincrement())
-  session_id   Int?
-  slot_id      Int
-  driver_name  String?   @db.VarChar(255)
-  vehicle_name String?   @db.VarChar(255)
-  class_name   String?   @db.VarChar(255)
-  is_player    Boolean?  @default(false)
-  created_at   DateTime? @default(now()) @db.Timestamp(6)
-  laps         laps[]
-  sessions     sessions? @relation(fields: [session_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicles_session_id_sessions_id_fk")
+	id           Int       @id @default(autoincrement())
+	session_id   Int?
+	slot_id      Int
+	driver_name  String?   @db.VarChar(255)
+	vehicle_name String?   @db.VarChar(255)
+	class_name   String?   @db.VarChar(255)
+	is_player    Boolean?  @default(false)
+	created_at   DateTime? @default(now()) @db.Timestamp(6)
+	laps         laps[]
+	sessions     sessions? @relation(fields: [session_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicles_session_id_sessions_id_fk")
 
-  @@index([session_id, slot_id], map: "session_vehicle_idx")
+	@@index([session_id, slot_id], map: "session_vehicle_idx")
 }
 
 model wheel_data {
-  id                         Int             @id @default(autoincrement())
-  telemetry_log_id           BigInt?
-  camber_fl                  Float?          @db.Real
-  camber_fr                  Float?          @db.Real
-  camber_rl                  Float?          @db.Real
-  camber_rr                  Float?          @db.Real
-  toe_fl                     Float?          @db.Real
-  toe_fr                     Float?          @db.Real
-  toe_rl                     Float?          @db.Real
-  toe_rr                     Float?          @db.Real
-  rotation_fl                Float?          @db.Real
-  rotation_fr                Float?          @db.Real
-  rotation_rl                Float?          @db.Real
-  rotation_rr                Float?          @db.Real
-  vel_lateral_fl             Float?          @db.Real
-  vel_lateral_fr             Float?          @db.Real
-  vel_lateral_rl             Float?          @db.Real
-  vel_lateral_rr             Float?          @db.Real
-  vel_longitudinal_fl        Float?          @db.Real
-  vel_longitudinal_fr        Float?          @db.Real
-  vel_longitudinal_rl        Float?          @db.Real
-  vel_longitudinal_rr        Float?          @db.Real
-  slip_angle_fl              Float?          @db.Real
-  slip_angle_fr              Float?          @db.Real
-  slip_angle_rl              Float?          @db.Real
-  slip_angle_rr              Float?          @db.Real
-  ride_height_fl             Float?          @db.Real
-  ride_height_fr             Float?          @db.Real
-  ride_height_rl             Float?          @db.Real
-  ride_height_rr             Float?          @db.Real
-  suspension_deflection_fl   Float?          @db.Real
-  suspension_deflection_fr   Float?          @db.Real
-  suspension_deflection_rl   Float?          @db.Real
-  suspension_deflection_rr   Float?          @db.Real
-  suspension_force_fl        Float?          @db.Real
-  suspension_force_fr        Float?          @db.Real
-  suspension_force_rl        Float?          @db.Real
-  suspension_force_rr        Float?          @db.Real
-  third_spring_deflection_fl Float?          @db.Real
-  third_spring_deflection_fr Float?          @db.Real
-  third_spring_deflection_rl Float?          @db.Real
-  third_spring_deflection_rr Float?          @db.Real
-  position_vertical_fl       Float?          @db.Real
-  position_vertical_fr       Float?          @db.Real
-  position_vertical_rl       Float?          @db.Real
-  position_vertical_rr       Float?          @db.Real
-  is_detached_fl             Boolean?
-  is_detached_fr             Boolean?
-  is_detached_rl             Boolean?
-  is_detached_rr             Boolean?
-  is_offroad                 Boolean?
-  telemetry_logs             telemetry_logs? @relation(fields: [telemetry_log_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "wheel_data_telemetry_log_id_telemetry_logs_id_fk")
+	id                         Int             @id @default(autoincrement())
+	telemetry_log_id           BigInt?
+	camber_fl                  Float?          @db.Real
+	camber_fr                  Float?          @db.Real
+	camber_rl                  Float?          @db.Real
+	camber_rr                  Float?          @db.Real
+	toe_fl                     Float?          @db.Real
+	toe_fr                     Float?          @db.Real
+	toe_rl                     Float?          @db.Real
+	toe_rr                     Float?          @db.Real
+	rotation_fl                Float?          @db.Real
+	rotation_fr                Float?          @db.Real
+	rotation_rl                Float?          @db.Real
+	rotation_rr                Float?          @db.Real
+	vel_lateral_fl             Float?          @db.Real
+	vel_lateral_fr             Float?          @db.Real
+	vel_lateral_rl             Float?          @db.Real
+	vel_lateral_rr             Float?          @db.Real
+	vel_longitudinal_fl        Float?          @db.Real
+	vel_longitudinal_fr        Float?          @db.Real
+	vel_longitudinal_rl        Float?          @db.Real
+	vel_longitudinal_rr        Float?          @db.Real
+	slip_angle_fl              Float?          @db.Real
+	slip_angle_fr              Float?          @db.Real
+	slip_angle_rl              Float?          @db.Real
+	slip_angle_rr              Float?          @db.Real
+	ride_height_fl             Float?          @db.Real
+	ride_height_fr             Float?          @db.Real
+	ride_height_rl             Float?          @db.Real
+	ride_height_rr             Float?          @db.Real
+	suspension_deflection_fl   Float?          @db.Real
+	suspension_deflection_fr   Float?          @db.Real
+	suspension_deflection_rl   Float?          @db.Real
+	suspension_deflection_rr   Float?          @db.Real
+	suspension_force_fl        Float?          @db.Real
+	suspension_force_fr        Float?          @db.Real
+	suspension_force_rl        Float?          @db.Real
+	suspension_force_rr        Float?          @db.Real
+	third_spring_deflection_fl Float?          @db.Real
+	third_spring_deflection_fr Float?          @db.Real
+	third_spring_deflection_rl Float?          @db.Real
+	third_spring_deflection_rr Float?          @db.Real
+	position_vertical_fl       Float?          @db.Real
+	position_vertical_fr       Float?          @db.Real
+	position_vertical_rl       Float?          @db.Real
+	position_vertical_rr       Float?          @db.Real
+	is_detached_fl             Boolean?
+	is_detached_fr             Boolean?
+	is_detached_rl             Boolean?
+	is_detached_rr             Boolean?
+	is_offroad                 Boolean?
+	telemetry_logs             telemetry_logs? @relation(fields: [telemetry_log_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "wheel_data_telemetry_log_id_telemetry_logs_id_fk")
 }
