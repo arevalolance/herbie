@@ -123,22 +123,33 @@ def run_logger():
     try:
         while True:
             if not rf2_sim.info.isPaused:
-                # Get current lap number
+                # Get current lap number and vehicle info
                 current_lap = rf2_sim.info.rf2TeleVeh().mLapNumber
+                vehicle_info = rf2_sim.info.rf2ScorVeh()
+                last_laptime = vehicle_info.mLastLapTime
+                in_pits = vehicle_info.mInPits
 
-                # Collect data for each class
-                for class_name, class_info in TELEMETRY_CLASSES.items():
-                    telemetry_class = class_info["class"](rf2_sim.info)
-                    data = get_telemetry_data(telemetry_class, class_info["fields"])
-                    data["elapsed_time"] = rf2_sim.info.rf2TeleVeh().mElapsedTime
-                    data["lap_number"] = current_lap
-                    class_data[class_name].append(data)
+                # Only record data if:
+                # 1. Not in pits
+                # 2. Previous lap was valid (positive time)
+                should_record = (
+                    not in_pits and 
+                    (last_laptime is None or last_laptime > 0)
+                )
+
+                if should_record:
+                    # Collect data for each class
+                    for class_name, class_info in TELEMETRY_CLASSES.items():
+                        telemetry_class = class_info["class"](rf2_sim.info)
+                        data = get_telemetry_data(telemetry_class, class_info["fields"])
+                        data["elapsed_time"] = rf2_sim.info.rf2TeleVeh().mElapsedTime
+                        data["lap_number"] = current_lap
+                        class_data[class_name].append(data)
 
                 # Detect lap change to write CSVs
                 if prev_lap_number is not None and current_lap != prev_lap_number:
                     # Check if the previous lap is valid
-                    last_lap_time = rf2_sim.info.rf2ScorVeh().mLastLapTime
-                    if last_lap_time and last_lap_time > 0:
+                    if last_laptime and last_laptime > 0:
                         # Write data for each class to its own CSV
                         for class_name, data in class_data.items():
                             if data:  # Only write if we have data
@@ -172,6 +183,7 @@ def run_logger():
                     f"RPM: {rf2_sim.info.rf2TeleVeh().mEngineRPM}",
                     f"Speed: {rf2_sim.info.rf2TeleVeh().mLocalVel.z * 3.6:.1f} km/h",
                     f"Gear: {rf2_sim.info.rf2TeleVeh().mGear}",
+                    f"Recording: {'Yes' if should_record else 'No'}"
                 )
 
             time.sleep(0.1)
