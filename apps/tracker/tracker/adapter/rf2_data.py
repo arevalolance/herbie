@@ -805,6 +805,14 @@ class Vehicle(DataAdapter):
         pos = self.info.rf2TeleVeh(index).mLastImpactPos
         return -rmnan(pos.x), rmnan(pos.z)
 
+    def track_edge(self, index: int | None = None) -> float:
+        """Track edge (meters) relative to the approximate centre path (same sign side as vehicle)"""
+        return rmnan(self.info.rf2ScorVeh(index).mTrackEdge)
+
+    def path_lateral(self, index: int | None = None) -> float:
+        """Lateral position with respect to the very approximate centre path (meters)"""
+        return rmnan(self.info.rf2ScorVeh(index).mPathLateral)
+
 
 class Wheel(DataAdapter):
     """Wheel & suspension"""

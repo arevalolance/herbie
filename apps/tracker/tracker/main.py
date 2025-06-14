@@ -186,6 +186,8 @@ TELEMETRY_CLASSES = {
             "is_detached",
             "impact_time",
             "impact_magnitude",
+            "track_edge",
+            "path_lateral",
             "impact_position",
         ],
         "class": rf2_data.Vehicle,
