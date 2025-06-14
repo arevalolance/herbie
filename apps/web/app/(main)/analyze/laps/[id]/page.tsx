@@ -1,4 +1,3 @@
-import { ZoomableChart } from "@/components/metrics/chart";
 import prisma from "@/lib/prisma";
 import { ChartGrid } from "./chart-grid";
 
@@ -14,6 +13,13 @@ export default async function AnalyzeLapsPage({ params }: { params: Promise<{ id
             telemetry_logs: {
                 orderBy: {
                     timestamp: 'asc'
+                },
+                include: {
+                    vehicle_state: true,
+                    wheel_data: true,
+                    input_data: true,
+                    tyre_data: true,
+                    brake_data: true,
                 }
             },
         }
@@ -23,5 +29,7 @@ export default async function AnalyzeLapsPage({ params }: { params: Promise<{ id
         return <div>Lap not found</div>;
     }
 
-    return <ChartGrid lap={lap} />;
+    console.log({ tele: lap.telemetry_logs.filter(log => log.lap_id === 1) });
+
+    return <ChartGrid lap={lap as any} />;
 }
