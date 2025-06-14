@@ -1,4 +1,4 @@
-[submodule "tracker/pyRfactor2SharedMemory"]
-	path = tracker/pyRfactor2SharedMemory
+[submodule "apps/tracker/pyRfactor2SharedMemory"]
+	path = apps/tracker/pyRfactor2SharedMemory
 	url = git@github.com:s-victor/pyRfactor2SharedMemory.git
 	branch = main
