@@ -1,9 +1,19 @@
 import { Button } from "@workspace/ui/components/button"
 import { withAuth, signOut } from '@workos-inc/authkit-nextjs'
 import Link from 'next/link'
+import { syncUserToDatabase } from '../../lib/auth-sync'
 
 export default async function Page() {
   const { user } = await withAuth()
+
+  // Sync user to database if logged in
+  if (user) {
+    try {
+      await syncUserToDatabase(user);
+    } catch (error) {
+      console.error('User sync failed:', error);
+    }
+  }
 
   if (!user) {
     return (

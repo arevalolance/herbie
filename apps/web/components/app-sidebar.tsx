@@ -50,7 +50,7 @@ const data = {
     },
     {
       title: "Analyze",
-      url: "#",
+      url: "/analyze",
       icon: Waypoints,
     },
     {
