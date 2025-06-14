@@ -3,6 +3,7 @@ import React, { useMemo, useState, useCallback } from "react";
 import { ZoomableChart } from "@/components/metrics/chart";
 import { Prisma } from "@/generated/prisma";
 import { Button } from "@workspace/ui/components/button";
+import TrackMapCanvas from "@/components/metrics/track-map-canvas";
 
 // Memoized individual chart component to prevent unnecessary re-renders
 const MemoizedChart = React.memo(({
@@ -190,6 +191,12 @@ export function ChartGrid({
 				lapTime={lapTime}
 				activeSectors={activeSectors}
 				toggleSector={toggleSector}
+			/>
+
+			<TrackMapCanvas
+				logs={lap.telemetry_logs}   // straight from Prisma query
+				width={1000}
+				height={1000}
 			/>
 
 			<div className="grid grid-cols-1 gap-4 w-1/2 ml-auto my-10">
