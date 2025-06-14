@@ -1,5 +1,6 @@
-import { syncUser } from '../db/queries/users';
-import { User } from '../db/schema';
+import prisma from '@/lib/prisma';
+// Re-export Prisma-generated `users` type as `User` for convenience
+export type { users as User } from '@/generated/prisma';
 
 // Interface for WorkOS user data (what we receive from withAuth())
 interface WorkOSUserInput {
@@ -14,7 +15,7 @@ interface WorkOSUserInput {
  * Sync WorkOS user data to our local database
  * 
  * This function handles the synchronization of user data from WorkOS
- * to your local PostgreSQL database using Drizzle ORM.
+ * to your local PostgreSQL database using Prisma ORM.
  * 
  * Features:
  * - Creates new users if they don't exist
@@ -38,13 +39,31 @@ interface WorkOSUserInput {
  */
 export async function syncUserToDatabase(user: WorkOSUserInput): Promise<boolean> {
   try {
-    await syncUser({
-      id: user.id,
-      organizationId: undefined, // Organization ID is handled separately in WorkOS
-      email: user.email,
-      firstName: user.firstName || undefined,
-      lastName: user.lastName || undefined,
-      profilePictureUrl: user.profilePictureUrl || undefined,
+    await prisma.users.upsert({
+      where: {
+        id: user.id,
+      },
+      update: {
+        organization_id: null, // Organization ID is handled separately in WorkOS
+        email: user.email,
+        first_name: user.firstName || undefined,
+        last_name: user.lastName || undefined,
+        name: user.firstName || user.lastName ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() : undefined,
+        profile_picture_url: user.profilePictureUrl || undefined,
+        updated_at: new Date(),
+      },
+      create: {
+        id: user.id,
+        workos_user_id: user.id,
+        organization_id: null, // Organization ID is handled separately in WorkOS
+        email: user.email,
+        first_name: user.firstName || undefined,
+        last_name: user.lastName || undefined,
+        name: user.firstName || user.lastName ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() : undefined,
+        profile_picture_url: user.profilePictureUrl || undefined,
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
     });
     
     console.log(`✅ User ${user.email} synced successfully to database`);
@@ -64,7 +83,4 @@ export async function syncUserInMiddleware(user: WorkOSUserInput): Promise<void>
   syncUserToDatabase(user).catch((error) => {
     console.error('Background user sync failed:', error);
   });
-}
-
-// Export the User type for convenience
-export type { User } from '../db/schema'; 
+} 
