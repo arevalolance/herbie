@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 
 // Minimal shape of telemetry log required for plotting
 interface TelemetryPoint {
@@ -33,17 +33,44 @@ export default function TrackMapCanvas({
   strokeStyle = "#00adee",
 }: TrackMapCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const pointsRef = useRef<{ x: number; y: number; info: TelemetryPoint }[]>([]);
+
+  interface TooltipStateBase {
+    visible: boolean;
+  }
+
+  interface TooltipVisible extends TooltipStateBase {
+    visible: true;
+    tooltipX: number;
+    tooltipY: number;
+    dotX: number;
+    dotY: number;
+    info: TelemetryPoint;
+  }
+
+  type TooltipState = { visible: false } | TooltipVisible;
+
+  const [tooltip, setTooltip] = useState<TooltipState>({ visible: false });
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // Filter logs that have valid positions
+    const validLogs = logs.filter(
+      (l) => l.position_x != null && l.position_z != null
+    );
+
     // Extract valid points (skip nulls) - using X,Z for bird's eye view
-    const points = logs
-      .filter((l) => l.position_x != null && l.position_z != null)
-      .map((l) => ({ x: l.position_x as number, z: l.position_z as number }));
+    const points = validLogs.map((l) => ({
+      x: l.position_x as number,
+      z: l.position_z as number,
+    }));
 
     if (points.length === 0) return;
+
+    // Reset hover reference array
+    pointsRef.current = [];
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -146,15 +173,42 @@ export default function TrackMapCanvas({
     ctx.shadowColor = strokeStyle;
     ctx.shadowBlur = 2;
 
+    // Smooth the path using quadratic curves to reduce jitter / zig-zags
     ctx.beginPath();
-    points.forEach((point, idx) => {
-      const canvasPos = worldToCanvas(point.x, point.z);
-      if (idx === 0) {
-        ctx.moveTo(canvasPos.x, canvasPos.y);
-      } else {
-        ctx.lineTo(canvasPos.x, canvasPos.y);
+
+    // Guard: If we have fewer than 2 points just draw a dot
+    if (points.length === 1) {
+      const solo = worldToCanvas(points[0]!.x, points[0]!.z);
+      ctx.lineTo(solo.x, solo.y);
+      pointsRef.current.push({ x: solo.x, y: solo.y, info: validLogs[0]! });
+      ctx.stroke();
+    } else {
+      const first = worldToCanvas(points[0]!.x, points[0]!.z);
+      ctx.moveTo(first.x, first.y);
+      pointsRef.current.push({ x: first.x, y: first.y, info: validLogs[0]! });
+
+      for (let i = 1; i < points.length - 1; i++) {
+        const currentRaw = points[i]!;
+        const nextRaw = points[i + 1]!;
+        const current = worldToCanvas(currentRaw.x, currentRaw.z);
+        const next = worldToCanvas(nextRaw.x, nextRaw.z);
+
+        pointsRef.current.push({ x: current.x, y: current.y, info: validLogs[i]! });
+
+        // Mid-point between current and next as the end point, current is control point
+        const midX = (current.x + next.x) / 2;
+        const midY = (current.y + next.y) / 2;
+
+        ctx.quadraticCurveTo(current.x, current.y, midX, midY);
       }
-    });
+
+      // Draw final segment straight to last point
+      const lastRaw = points[points.length - 1]!;
+      const last = worldToCanvas(lastRaw.x, lastRaw.z);
+      ctx.lineTo(last.x, last.y);
+      pointsRef.current.push({ x: last.x, y: last.y, info: validLogs[validLogs.length - 1]! });
+    }
+
     ctx.stroke();
 
     // Reset shadow
@@ -189,12 +243,84 @@ export default function TrackMapCanvas({
 
   }, [logs, width, height, strokeStyle]);
 
+  // -----------------------------------------------------------------------------
+  // Mouse handlers for tooltip
+  // -----------------------------------------------------------------------------
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const threshold = 6; // px
+    let closest: { x: number; y: number; info: TelemetryPoint } | null = null;
+    let minDist = Infinity;
+
+    for (const pt of pointsRef.current) {
+      const dx = pt.x - x;
+      const dy = pt.y - y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < minDist) {
+        minDist = dist;
+        closest = pt;
+      }
+    }
+
+    if (closest && minDist <= threshold) {
+      setTooltip({
+        visible: true,
+        tooltipX: x + 12,
+        tooltipY: y + 12,
+        dotX: closest.x,
+        dotY: closest.y,
+        info: closest.info,
+      });
+    } else if (tooltip.visible) {
+      setTooltip({ visible: false });
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (tooltip.visible) setTooltip({ visible: false });
+  };
+
   return (
-    <div className="relative">
-      <canvas ref={canvasRef} className="border border-gray-600 rounded" />
-      <div className="absolute top-2 left-2 text-white text-sm bg-black bg-opacity-50 px-2 py-1 rounded">
+    <div className="relative select-none">
+      <canvas
+        ref={canvasRef}
+        className="border border-gray-600 rounded"
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+      />
+
+      <div className="absolute top-2 left-2 text-white text-sm bg-black bg-opacity-50 px-2 py-1 rounded pointer-events-none">
         Bird's Eye View
       </div>
+
+      {tooltip.visible && (
+        <>
+          {/* Tooltip box */}
+          <div
+            className="absolute text-xs bg-gray-800 bg-opacity-90 text-white px-2 py-1 rounded whitespace-nowrap pointer-events-none"
+            style={{ left: tooltip.tooltipX, top: tooltip.tooltipY }}
+          >
+            {tooltip.info.speed != null
+              ? `Speed: ${tooltip.info.speed.toFixed(0)} km/h`
+              : `x: ${tooltip.info.position_x?.toFixed(1)}, z: ${tooltip.info.position_z?.toFixed(1)}`}
+          </div>
+
+          {/* Dot marker */}
+          <div
+            className="absolute w-2 h-2 rounded-full bg-white pointer-events-none"
+            style={{
+              left: tooltip.dotX - 4,
+              top: tooltip.dotY - 4,
+            }}
+          />
+        </>
+      )}
     </div>
   );
 } 
