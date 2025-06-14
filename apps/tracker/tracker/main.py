@@ -80,17 +80,6 @@ TELEMETRY_CLASSES = {
                   "third_spring_deflection", "suspension_deflection", "suspension_force", 
                   "position_vertical", "is_detached", "is_offroad"],
         "class": rf2_data.Wheel
-    },
-    "server": {
-        "fields": [
-            "game_mode",
-            "is_password_protected",
-            "server_port",
-            "server_public_ip",
-            "max_players",
-            "server_name"
-        ],
-        "class": rf2_data.Server
     }
 }
 
@@ -127,47 +116,23 @@ def run_logger():
     print("Logger connected. Monitoring telemetry data... (Press Ctrl+C to exit)")
     
     # Initialize data storage for each class
-    class_data: Dict[str, List[Dict]] = {class_name: [] for class_name in TELEMETRY_CLASSES.keys() if class_name != "server"}
+    class_data: Dict[str, List[Dict]] = {class_name: [] for class_name in TELEMETRY_CLASSES.keys()}
     prev_lap_number = None
     first_struct_dumped = False
-    # Track session changes for server info logging
-    prev_session_stamp = None
 
     try:
         while True:
             if not rf2_sim.info.isPaused:
-                # Detect current session stamp using rf2_data.Check adapter
-                check_adapter = rf2_data.Check(rf2_sim.info)
-                session_stamp, _, _ = check_adapter.session_id()
-
                 # Get current lap number
                 current_lap = rf2_sim.info.rf2TeleVeh().mLapNumber
 
                 # Collect data for each class
                 for class_name, class_info in TELEMETRY_CLASSES.items():
-                    if class_name == "server":
-                        # server info is handled per session separately
-                        continue
                     telemetry_class = class_info["class"](rf2_sim.info)
                     data = get_telemetry_data(telemetry_class, class_info["fields"])
                     data["elapsed_time"] = rf2_sim.info.rf2TeleVeh().mElapsedTime
                     data["lap_number"] = current_lap
                     class_data[class_name].append(data)
-
-                # Detect session change to dump server info
-                if prev_session_stamp is None or session_stamp != prev_session_stamp:
-                    server_adapter = rf2_data.Server(rf2_sim.info)
-                    server_data = get_telemetry_data(
-                        server_adapter,
-                        TELEMETRY_CLASSES["server"]["fields"],
-                    )
-                    csv_path = os.path.join(LOG_DIR, f"session_{session_stamp}_server.csv")
-                    with open(csv_path, "w", newline="", encoding="utf-8") as csvfile:
-                        writer = csv.DictWriter(csvfile, fieldnames=server_data.keys())
-                        writer.writeheader()
-                        writer.writerow(server_data)
-                    print(f"Saved server info for session {session_stamp} to {csv_path}")
-                    prev_session_stamp = session_stamp
 
                 # Detect lap change to write CSVs
                 if prev_lap_number is not None and current_lap != prev_lap_number:
@@ -191,7 +156,7 @@ def run_logger():
                                 print(f"Saved {class_name} telemetry for lap {prev_lap_number} to {csv_path}")
                         
                         # Clear the data after writing
-                        class_data = {class_name: [] for class_name in TELEMETRY_CLASSES.keys() if class_name != "server"}
+                        class_data = {class_name: [] for class_name in TELEMETRY_CLASSES.keys()}
 
                 prev_lap_number = current_lap
 
