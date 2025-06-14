@@ -1,0 +1,2 @@
+ambient_temperature,blue_flag,elapsed,elapsed_time,end,green_flag,in_countdown,in_formation,in_race,lap_number,lap_type,pit_open,raininess,remaining,session_type,start,start_lights,track_name,track_temperature,wetness_0,wetness_1,wetness_2,wetness_average,wetness_maximum,wetness_minimum,yellow_flag
+11.0,False,370.8,370.8025,10505.0,True,False,False,False,2,False,True,0.0,10134.2,1,41400.0,6,Circuit de Spa-Francorchamps,31.038414206002074,0.0,0.0,0.0,0.0,0.0,0.0,False

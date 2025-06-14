@@ -1,0 +1,2 @@
+brake,brake_raw,clutch,clutch_raw,elapsed_time,force_feedback,lap_number,steering,steering_range_physical,steering_range_visual,steering_raw,steering_shaft_torque,throttle,throttle_raw
+0.0,0.0,0.0,0.0,370.8025,-0.010291113518178463,2,0.003550803754478693,0.0,719.0,0.003550803754478693,-1.1477014912486276,1.0,1.0
