@@ -55,20 +55,21 @@ const data = {
     },
     {
       title: "Laps",
-      url: "#",
+      url: "/laps",
       icon: Car,
+      isActive: true,
       items: [
         {
           title: "Cars",
-          url: "#",
+          url: "/laps/cars",
         },
         {
           title: "Tracks",
-          url: "#",
+          url: "/laps/tracks",
         },
         {
           title: "Categories",
-          url: "#",
+          url: "/laps/categories",
         },
       ],
     },
