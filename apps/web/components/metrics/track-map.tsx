@@ -1,4 +1,6 @@
 'use client'
+import { Button } from "@workspace/ui/components/button"
+import { MinusIcon, PlusIcon } from "lucide-react"
 import { useEffect, useRef } from "react"
 
 /**
@@ -281,6 +283,25 @@ export function TrackMap({
           mctx.stroke()
         }
 
+        // draw lap lines in minimap
+        laps.forEach((lap) => {
+          const pts = lap.points
+          if (pts.length < 2) return
+
+          const canvasPts = pts.map(mToCanvas)
+          mctx.beginPath()
+          mctx.moveTo(canvasPts[0]!.x, canvasPts[0]!.y)
+          for (let i = 1; i < canvasPts.length; i++) {
+            const { x, y } = canvasPts[i]!
+            mctx.lineTo(x, y)
+          }
+          mctx.strokeStyle = lap.color || "#888"
+          mctx.lineWidth = 1
+          mctx.lineCap = "round"
+          mctx.lineJoin = "round"
+          mctx.stroke()
+        })
+
         // viewport rectangle
         const v = viewRef.current
         const topLeftWorld = {
@@ -466,19 +487,23 @@ export function TrackMap({
       <canvas ref={canvasRef} className="w-full h-full" />
 
       {/* Zoom controls */}
-      <div className="absolute top-2 left-2 flex flex-col bg-gray-800/70 rounded text-white">
-        <button
-          className="px-2 py-1 hover:bg-gray-700"
+      <div className="absolute top-2 left-2 flex flex-col rounded text-white divide-y">
+        <Button
+          size={"sm"}
+          className="rounded-b-none size-8 p-0 [&_svg]:!size-3"
+          variant={"secondary"}
           onClick={() => changeZoom(1.25)}
         >
-          +
-        </button>
-        <button
-          className="px-2 py-1 hover:bg-gray-700 border-t border-gray-700"
+          <PlusIcon className="h-3 w-3" />
+        </Button>
+        <Button
+          size={"sm"}
+          className="rounded-t-none size-8 p-0 [&_svg]:!size-3"
+          variant={"secondary"}
           onClick={() => changeZoom(0.8)}
         >
-          −
-        </button>
+          <MinusIcon className="h-3 w-3" />
+        </Button>
       </div>
 
       {/* Mini-map overview */}
