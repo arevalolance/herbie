@@ -1,30 +1,9 @@
 'use client'
 import React, { useMemo, useState, useCallback } from "react";
-import { ZoomableChart } from "@/components/metrics/chart";
 import { Prisma } from "@/generated/prisma";
 import { Button } from "@workspace/ui/components/button";
 import { TrackMap, LapLine, LapPoint } from "@/components/metrics/track-map";
-
-// Memoized individual chart component to prevent unnecessary re-renders
-const MemoizedChart = React.memo(({
-	data,
-	title,
-	syncId
-}: {
-	data: { date: string; events: number }[];
-	title: string;
-	syncId: string;
-}) => (
-	<div className="max-h-[150px]">
-		<ZoomableChart
-			data={data}
-			title={title}
-			syncId={syncId}
-		/>
-	</div>
-));
-
-MemoizedChart.displayName = 'MemoizedChart';
+import { ZoomableChart } from "@/components/metrics/chart";
 
 // -----------------------------------------------------------------------------
 //  Sector filter bar
@@ -665,7 +644,7 @@ export function ChartGrid({
 
 				<div className="grid grid-cols-1 gap-4 w-1/2 ml-auto my-10">
 					{chartData.map((chart) => (
-						<MemoizedChart
+						<ZoomableChart
 							key={chart.title}
 							data={chart.data}
 							title={chart.title}
