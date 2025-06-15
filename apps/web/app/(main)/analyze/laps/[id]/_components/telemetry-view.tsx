@@ -1,8 +1,9 @@
 'use client'
+
 import React, { useMemo, useState, useCallback } from "react";
 import { Prisma } from "@/generated/prisma";
 import { Button } from "@workspace/ui/components/button";
-import { TrackMap, LapLine, LapPoint } from "@/components/metrics/track-map";
+import { TrackMap, LapLine } from "@/components/metrics/track-map";
 import { ZoomableChart } from "@/components/metrics/chart";
 import { 
 	generateRacingLine,
@@ -10,10 +11,6 @@ import {
 	generateChartData,
 	type TelemetryLog
 } from "@/lib/track-map/utils";
-
-// -----------------------------------------------------------------------------
-//  Sector filter bar
-// -----------------------------------------------------------------------------
 
 interface SectorFilterBarProps {
 	sectorTimes: (number | null)[];
@@ -51,10 +48,7 @@ const SectorFilterBar: React.FC<SectorFilterBarProps> = ({
 	);
 };
 
-
-
-// Create a client component wrapper for the chart grid
-export function ChartGrid({
+export function TelemetryView({
 	lap,
 }: {
 	lap: Prisma.lapsGetPayload<{
@@ -74,10 +68,6 @@ export function ChartGrid({
 		};
 	}>;
 }) {
-	// ---------------------------------------------------------------------------
-	//  State & helpers
-	// ---------------------------------------------------------------------------
-
 	const [activeSectors, setActiveSectors] = useState<number[]>([0, 1, 2]);
 
 	const toggleSector = useCallback((sector: number) => {
@@ -142,7 +132,7 @@ export function ChartGrid({
 		[filteredLogs]
 	);
 
-	// NEW: Compute left/right track boundary (rails) lines in WORLD coordinates
+	// Compute left/right track boundary (rails) lines in WORLD coordinates
 	const worldRails: LapLine[] = useMemo(() => 
 		generateWorldRails(lap.id, lap.telemetry_logs as TelemetryLog[]),
 		[lap.id, lap.telemetry_logs]

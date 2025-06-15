@@ -1,5 +1,5 @@
 import prisma from "@/lib/prisma";
-import { ChartGrid } from "./chart-grid";
+import { TelemetryView } from "./_components/telemetry-view";
 
 export default async function AnalyzeLapsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -29,7 +29,5 @@ export default async function AnalyzeLapsPage({ params }: { params: Promise<{ id
         return <div>Lap not found</div>;
     }
 
-    console.log({ tele: lap.telemetry_logs.filter(log => log.lap_id === 1) });
-
-    return <ChartGrid lap={lap as any} />;
+    return <TelemetryView lap={lap} />;
 }
