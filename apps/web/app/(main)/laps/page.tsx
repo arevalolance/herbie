@@ -1,14 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@workspace/ui/components/card";
-import { Button } from "@workspace/ui/components/button";
-import { Clock, Car, MapPin, Trophy, TrendingUp } from "lucide-react";
-import Link from "next/link";
-import { LapCard } from "@/components/lap-card";
-import { getRecentLaps, getLapStats } from "./_actions";
+import { Clock, Car, MapPin, Trophy } from "lucide-react";
+import { getLaps, getLapStats, getFilterData } from "./_actions";
+import { FilteredLapsList } from "./_components/filtered-laps-list";
 
 export default async function LapsPage() {
-    const [recentLaps, stats] = await Promise.all([
-        getRecentLaps(6),
-        getLapStats()
+    const [laps, stats, filterData] = await Promise.all([
+        getLaps(100),
+        getLapStats(),
+        getFilterData()
     ]);
 
     return (
@@ -70,84 +69,14 @@ export default async function LapsPage() {
                 </Card>
             </div>
 
-            {/* Navigation Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="hover:shadow-md transition-shadow">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Car className="h-5 w-5" />
-                            Browse by Car
-                        </CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                            View laps organized by vehicle
-                        </p>
-                    </CardHeader>
-                    <CardContent>
-                        <Button asChild className="w-full">
-                            <Link href="/laps/cars">View Cars</Link>
-                        </Button>
-                    </CardContent>
-                </Card>
-
-                <Card className="hover:shadow-md transition-shadow">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <MapPin className="h-5 w-5" />
-                            Browse by Track
-                        </CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                            View laps organized by circuit
-                        </p>
-                    </CardHeader>
-                    <CardContent>
-                        <Button asChild variant="outline" className="w-full">
-                            <Link href="/laps/tracks">View Tracks</Link>
-                        </Button>
-                    </CardContent>
-                </Card>
-
-                <Card className="hover:shadow-md transition-shadow">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5" />
-                            Categories
-                        </CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                            Personal bests, recent activity
-                        </p>
-                    </CardHeader>
-                    <CardContent>
-                        <Button asChild variant="outline" className="w-full">
-                            <Link href="/laps/categories">View Categories</Link>
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Recent Laps */}
+            {/* Laps with Filtering */}
             <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold">Recent Laps</h2>
-                    <Button asChild variant="outline" size="sm">
-                        <Link href="/laps/all">View All</Link>
-                    </Button>
-                </div>
-
-                {recentLaps.length === 0 ? (
-                    <Card>
-                        <CardContent className="py-8 text-center">
-                            <p className="text-muted-foreground">
-                                No laps found. Start a racing session to see your laps here.
-                            </p>
-                        </CardContent>
-                    </Card>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {recentLaps.map((lap) => (
-                            <LapCard key={lap.id} lap={lap} showVehicleInfo={true} />
-                        ))}
-                    </div>
-                )}
+                <h2 className="text-xl font-semibold">Your Laps</h2>
+                
+                <FilteredLapsList 
+                    laps={laps}
+                    filterData={filterData}
+                />
             </div>
         </div>
     );

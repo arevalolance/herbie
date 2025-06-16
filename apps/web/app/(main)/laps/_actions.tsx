@@ -196,3 +196,70 @@ export async function getLapStats() {
         uniqueVehicles
     };
 }
+
+export async function getFilterData() {
+    const { user } = await withAuth();
+    
+    if (!user) {
+        return {
+            vehicles: [],
+            tracks: [],
+            categories: []
+        };
+    }
+
+    const [vehicles, tracks, categories] = await Promise.all([
+        prisma.vehicles.findMany({
+            where: {
+                laps: {
+                    some: {
+                        user_id: user.id,
+                        is_valid: true
+                    }
+                }
+            },
+            select: {
+                id: true,
+                vehicle_name: true,
+                class_name: true
+            },
+            distinct: ['vehicle_name', 'class_name']
+        }),
+        prisma.sessions.findMany({
+            where: {
+                user_id: user.id,
+                laps: {
+                    some: {
+                        is_valid: true
+                    }
+                }
+            },
+            select: {
+                id: true,
+                track_name: true,
+                sim_name: true
+            },
+            distinct: ['track_name']
+        }),
+        prisma.vehicles.findMany({
+            where: {
+                laps: {
+                    some: {
+                        user_id: user.id,
+                        is_valid: true
+                    }
+                }
+            },
+            select: {
+                class_name: true
+            },
+            distinct: ['class_name']
+        })
+    ]);
+
+    return {
+        vehicles,
+        tracks,
+        categories: categories.map(c => ({ name: c.class_name }))
+    };
+}
