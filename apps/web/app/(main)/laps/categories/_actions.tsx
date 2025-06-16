@@ -3,37 +3,33 @@
 import prisma from "@/lib/prisma";
 import { withAuth } from '@workos-inc/authkit-nextjs';
 
-export async function getCars() {
+export async function getCategories() {
     const { user } = await withAuth();
     
     if (!user) {
         return [];
     }
     
-    // Get distinct vehicles with their details and lap counts
+    // Get distinct vehicle categories with their details and lap counts
     const vehicles = await prisma.vehicles.findMany({
         where: {
-            OR: [
-                {
-                    is_player: true,
-                    sessions: {
-                        user_id: user.id
-                    }
-                },
-                {
-                    laps: {
-                        some: {
-                            user_id: user.id
-                        }
-                    }
+            class_name: {
+                not: null
+            },
+            laps: {
+                some: {
+                    user_id: user.id,
+                    is_valid: true
                 }
-            ]
+            }
         },
-        include: {
+        select: {
+            id: true,
+            class_name: true,
+            vehicle_name: true,
             sessions: {
                 select: {
-                    track_name: true,
-                    session_type: true,
+                    sim_name: true,
                     created_at: true
                 }
             },
@@ -49,38 +45,46 @@ export async function getCars() {
             }
         },
         orderBy: {
-            created_at: 'desc'
+            sessions: {
+                created_at: 'desc'
+            }
         }
     });
 
-    // Deduplicate by vehicle_name and class_name, keeping the one with the most laps
-    const uniqueVehicles = vehicles.reduce((acc, vehicle) => {
-        const key = `${vehicle.vehicle_name}-${vehicle.class_name}`;
+    // Deduplicate by class_name, keeping the one with the most laps
+    const uniqueCategories = vehicles.reduce((acc, vehicle) => {
+        const key = vehicle.class_name!;
         if (!acc[key] || vehicle._count.laps > acc[key]._count.laps) {
             acc[key] = vehicle;
         }
         return acc;
     }, {} as Record<string, typeof vehicles[0]>);
 
-    return Object.values(uniqueVehicles);
+    return Object.values(uniqueCategories);
 }
 
-export async function getLapsByVehicle(vehicleId: string) {
+export async function getLapsByCategory(categoryId: string) {
     const { user } = await withAuth();
     
     if (!user) {
-        return { vehicle: null, laps: [] };
+        return { category: null, laps: [] };
     }
 
-    const vehicleIdNum = parseInt(vehicleId);
+    const categoryIdNum = parseInt(categoryId);
     
-    // Get vehicle details
-    const vehicle = await prisma.vehicles.findUnique({
-        where: { id: vehicleIdNum },
+    // Get category details from vehicle
+    const categoryVehicle = await prisma.vehicles.findUnique({
+        where: { id: categoryIdNum },
         select: {
             id: true,
-            vehicle_name: true,
             class_name: true,
+            vehicle_name: true,
+            sessions: {
+                select: {
+                    sim_name: true,
+                    created_at: true
+                }
+            },
             _count: {
                 select: {
                     laps: {
@@ -94,16 +98,18 @@ export async function getLapsByVehicle(vehicleId: string) {
         }
     });
 
-    if (!vehicle) {
-        return { vehicle: null, laps: [] };
+    if (!categoryVehicle) {
+        return { category: null, laps: [] };
     }
 
-    // Get all laps for this vehicle
+    // Get all laps for this category (by class_name to include all vehicles in this category)
     const laps = await prisma.laps.findMany({
         where: {
-            vehicle_id: vehicleIdNum,
             user_id: user.id,
-            is_valid: true
+            is_valid: true,
+            vehicles: {
+                class_name: categoryVehicle.class_name
+            }
         },
         include: {
             vehicles: {
@@ -116,7 +122,8 @@ export async function getLapsByVehicle(vehicleId: string) {
                 select: {
                     track_name: true,
                     session_type: true,
-                    sim_name: true
+                    sim_name: true,
+                    created_at: true
                 }
             },
             lap_summary: {
@@ -131,6 +138,5 @@ export async function getLapsByVehicle(vehicleId: string) {
         ]
     });
 
-    return { vehicle, laps };
+    return { category: categoryVehicle, laps };
 }
-
