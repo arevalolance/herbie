@@ -29,5 +29,6 @@ export default async function AnalyzeLapsPage({ params }: { params: Promise<{ id
         return <div>Lap not found</div>;
     }
 
+    console.log({lap});
     return <TelemetryView lap={lap} />;
 }

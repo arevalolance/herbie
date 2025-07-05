@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import prisma from '../lib/prisma.js';
 import { calculateSpeed } from '@workspace/ui/lib/utils';
+import { DeltaCalculator } from '../lib/delta-calculator.js';
 
 // Load environment variables
 dotenv.config();
@@ -575,8 +576,20 @@ async function seedData(userId: string, csvDirectory: string) {
     console.log(`  ⏱️  ETA: ${Math.round(estimatedTimeRemaining / 1000)}s remaining\n`);
   }
   
+  // Calculate delta times for all laps
+  console.log(`\n🧮 Calculating delta times for all laps...`);
+  const deltaCalculator = new DeltaCalculator(prisma);
+  
+  try {
+    await deltaCalculator.calculateSessionDeltas(session.id);
+    console.log(`✅ Delta calculations completed for session ${session.id}`);
+  } catch (error) {
+    console.error(`❌ Error calculating deltas: ${error}`);
+    // Continue with execution - delta calculation failure shouldn't stop the seed
+  }
+  
   const totalElapsed = Date.now() - startTime;
-  console.log(`🎉 Seed completed successfully!`);
+  console.log(`\n🎉 Seed completed successfully!`);
   console.log(`⏰ Total time: ${Math.round(totalElapsed / 1000)}s`);
   console.log(`📊 Processed ${processedLaps} laps with ${processedTelemetryPoints} telemetry data points`);
   console.log(`⚡ Average: ${Math.round(processedTelemetryPoints / (totalElapsed / 1000))} points/second`);

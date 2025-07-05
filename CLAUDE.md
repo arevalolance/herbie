@@ -12,6 +12,13 @@ Herbie is a racing telemetry analysis application that consists of:
 
 The system captures detailed racing telemetry (engine, brakes, tires, suspension, etc.) from rFactor 2 and stores it in a PostgreSQL database for analysis.
 
+**Key Features:**
+- Real-time telemetry collection from rFactor 2 shared memory
+- Comprehensive racing data analysis with 15+ telemetry categories
+- Interactive lap comparison and performance visualization
+- Track map visualization with racing line analysis
+- User authentication and session management
+
 ## Development Commands
 
 ### Root Level Commands
@@ -43,6 +50,9 @@ cd apps/web && pnpm build
 # Run type checking
 cd apps/web && pnpm typecheck
 
+# Lint and fix code
+cd apps/web && pnpm lint:fix
+
 # Generate Prisma client
 cd apps/web && prisma generate
 
@@ -66,10 +76,13 @@ cd apps/tracker && python -m tracker.main
 
 ### Database Schema
 The PostgreSQL database contains comprehensive racing telemetry tables:
-- `telemetry_logs`: Core telemetry data with position, speed, inputs, etc.
+- `telemetry_logs`: Core telemetry data with position, speed, inputs, etc. (BigInt IDs for performance)
 - `laps`: Lap information with timing and session details
 - `sessions`: Race session metadata
-- Related data tables: `brake_data`, `engine_data`, `tyre_data`, `wheel_data`, etc.
+- `lap_summary`: Pre-calculated lap statistics for performance
+- `lap_comparisons`: User-created lap comparison sets
+- Detailed component data: `brake_data`, `engine_data`, `tyre_data`, `wheel_data`, `input_data`, `switch_states`, `vehicle_state`
+- Performance tables: `timing_data`, `tyre_temperature_detail`, `session_conditions`
 
 ### Authentication
 - Uses WorkOS AuthKit for authentication
@@ -78,9 +91,11 @@ The PostgreSQL database contains comprehensive racing telemetry tables:
 
 ### Key Technologies
 - **Frontend**: Next.js 15, React 19, TypeScript, shadcn/ui, Recharts for data visualization
-- **Backend**: Prisma ORM with PostgreSQL
+- **Backend**: Prisma ORM with PostgreSQL, Server Actions for mutations
 - **Monorepo**: pnpm workspace with Turbo for build orchestration
 - **Python**: rFactor 2 shared memory integration for telemetry collection
+- **Styling**: Tailwind CSS v4 with CSS-in-JS support
+- **Development**: Turbopack for fast dev builds, react-scan for performance monitoring
 
 ### Component Architecture
 - `packages/ui/`: Shared component library using shadcn/ui
@@ -98,3 +113,17 @@ Requires:
 Essential environment variables:
 - `DATABASE_URL`: PostgreSQL connection string
 - `WORKOS_API_KEY`, `WORKOS_CLIENT_ID`, `WORKOS_COOKIE_PASSWORD`: Authentication
+
+## Important File Locations
+- **Python Telemetry Data**: `apps/tracker/tracker/telemetry_logs/` - CSV files generated per lap
+- **Prisma Schema**: `apps/web/prisma/schema.prisma` - Complete database schema
+- **Database Seed Script**: `apps/web/scripts/seed-csv.ts` - Imports CSV data to PostgreSQL
+- **Component Library**: `packages/ui/src/components/` - Shared UI components
+- **Track Map Component**: `apps/web/components/metrics/track-map.tsx` - Custom track visualization
+- **Generated Prisma Client**: `apps/web/generated/prisma/` - Auto-generated database client
+
+## Common Workflows
+- **Adding new telemetry data**: Modify Python tracker, update CSV structure, adjust Prisma schema, regenerate client
+- **Adding UI components**: Add to `packages/ui/src/components/`, export from index, use in web app
+- **Database changes**: Update Prisma schema, run `prisma generate`, update seed script if needed
+- **Performance optimization**: Check indexes in schema, use `lap_summary` for aggregated data

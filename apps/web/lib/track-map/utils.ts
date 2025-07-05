@@ -1,5 +1,6 @@
 import { LapPoint } from "@/components/metrics/track-map";
 import { calculateSpeed } from "@workspace/ui/lib/utils";
+import { formatDeltaForTooltip } from "@/lib/delta-formatter";
 
 /**
  * Ramer–Douglas–Peucker polyline simplification algorithm
@@ -224,6 +225,9 @@ export interface TelemetryLog {
 	velocity_lateral?: number | null;
 	velocity_vertical?: number | null;
 	timestamp?: string | Date | null;
+	delta_to_best_time?: number | null;
+	delta_to_session_best_time?: number | null;
+	reference_lap_id?: number | null;
 }
 
 export interface LapLine {
@@ -237,6 +241,8 @@ export interface LapLine {
 export interface ChartDataPoint {
 	date: string;
 	events: number;
+	delta_to_best?: number;
+	delta_to_session_best?: number;
 }
 
 export interface ChartData {
@@ -265,12 +271,18 @@ export function generateRacingLine(
 				x: Number(log.position_x),
 				y: Number(log.position_y),
 				meta: {
-					speed: calculateSpeed(log.velocity_longitudinal, log.velocity_lateral, log.velocity_vertical),
-					throttle: log.throttle ?? 0,
-					brake: log.brake ?? 0,
+					speed: `${calculateSpeed(log.velocity_longitudinal, log.velocity_lateral, log.velocity_vertical).toFixed(1)} km/h`,
+					throttle: `${((log.throttle ?? 0) * 100).toFixed(1)}%`,
+					brake: `${((log.brake ?? 0) * 100).toFixed(1)}%`,
 					gear: log.gear ?? 0,
-					rpm: log.rpm ?? 0,
-					steering: log.steering ?? 0,
+					rpm: `${Math.round(log.rpm ?? 0)} RPM`,
+					steering: `${((log.steering ?? 0) * 100).toFixed(1)}%`,
+					...(log.delta_to_best_time !== null && log.delta_to_best_time !== undefined && {
+						"Δ Personal": formatDeltaForTooltip(log.delta_to_best_time)
+					}),
+					...(log.delta_to_session_best_time !== null && log.delta_to_session_best_time !== undefined && {
+						"Δ Session": formatDeltaForTooltip(log.delta_to_session_best_time)
+					}),
 					index: index,
 					timestamp: log.timestamp,
 					line_type: "vehicle_position",
@@ -520,12 +532,14 @@ export function generateWorldRails(
  * @returns Array of chart data objects for different metrics
  */
 export function generateChartData(telemetryLogs: TelemetryLog[]): ChartData[] {
-	return [
+	const charts: ChartData[] = [
 		{
 			title: "Speed",
 			data: telemetryLogs.map((log) => ({
 				date: (log.lap_progress ?? 0).toString(),
 				events: calculateSpeed(log.velocity_longitudinal, log.velocity_lateral, log.velocity_vertical),
+				delta_to_best: log.delta_to_best_time,
+				delta_to_session_best: log.delta_to_session_best_time,
 			})),
 		},
 		{
@@ -533,6 +547,8 @@ export function generateChartData(telemetryLogs: TelemetryLog[]): ChartData[] {
 			data: telemetryLogs.map((log) => ({
 				date: (log.lap_progress ?? 0).toString(),
 				events: (log.throttle ?? 0) * 100,
+				delta_to_best: log.delta_to_best_time,
+				delta_to_session_best: log.delta_to_session_best_time,
 			})),
 		},
 		{
@@ -540,6 +556,8 @@ export function generateChartData(telemetryLogs: TelemetryLog[]): ChartData[] {
 			data: telemetryLogs.map((log) => ({
 				date: (log.lap_progress ?? 0).toString(),
 				events: (log.brake ?? 0) * 100,
+				delta_to_best: log.delta_to_best_time,
+				delta_to_session_best: log.delta_to_session_best_time,
 			})),
 		},
 		{
@@ -547,6 +565,8 @@ export function generateChartData(telemetryLogs: TelemetryLog[]): ChartData[] {
 			data: telemetryLogs.map((log) => ({
 				date: (log.lap_progress ?? 0).toString(),
 				events: log.gear ?? 0,
+				delta_to_best: log.delta_to_best_time,
+				delta_to_session_best: log.delta_to_session_best_time,
 			})),
 		},
 		{
@@ -554,6 +574,8 @@ export function generateChartData(telemetryLogs: TelemetryLog[]): ChartData[] {
 			data: telemetryLogs.map((log) => ({
 				date: (log.lap_progress ?? 0).toString(),
 				events: log.rpm ?? 0,
+				delta_to_best: log.delta_to_best_time,
+				delta_to_session_best: log.delta_to_session_best_time,
 			})),
 		},
 		{
@@ -561,9 +583,37 @@ export function generateChartData(telemetryLogs: TelemetryLog[]): ChartData[] {
 			data: telemetryLogs.map((log) => ({
 				date: (log.lap_progress ?? 0).toString(),
 				events: (log.steering ?? 0) * 100,
+				delta_to_best: log.delta_to_best_time,
+				delta_to_session_best: log.delta_to_session_best_time,
 			})),
 		},
 	];
+
+	// Add delta charts if delta data is available
+	const hasPersonalBestDelta = telemetryLogs.some(log => log.delta_to_best_time !== null && log.delta_to_best_time !== undefined);
+	const hasSessionBestDelta = telemetryLogs.some(log => log.delta_to_session_best_time !== null && log.delta_to_session_best_time !== undefined);
+
+	if (hasPersonalBestDelta) {
+		charts.push({
+			title: "Delta to Personal Best",
+			data: telemetryLogs.map((log) => ({
+				date: (log.lap_progress ?? 0).toString(),
+				events: log.delta_to_best_time ?? 0,
+			})),
+		});
+	}
+
+	if (hasSessionBestDelta) {
+		charts.push({
+			title: "Delta to Session Best",
+			data: telemetryLogs.map((log) => ({
+				date: (log.lap_progress ?? 0).toString(),
+				events: log.delta_to_session_best_time ?? 0,
+			})),
+		});
+	}
+
+	return charts;
 }
 
 /**

@@ -57,6 +57,36 @@ export function TelemetryView({
 			timing_data: true;
 			sessions: { select: { track_name: true; sim_name: true } };
 			telemetry_logs: {
+				select: {
+					id: true;
+					lap_id: true;
+					timestamp: true;
+					session_elapsed: true;
+					lap_progress: true;
+					position_x: true;
+					position_y: true;
+					position_z: true;
+					orientation_yaw: true;
+					speed: true;
+					accel_lateral: true;
+					accel_longitudinal: true;
+					accel_vertical: true;
+					velocity_lateral: true;
+					velocity_longitudinal: true;
+					velocity_vertical: true;
+					gear: true;
+					rpm: true;
+					throttle: true;
+					brake: true;
+					clutch: true;
+					steering: true;
+					fuel: true;
+					track_edge: true;
+					path_lateral: true;
+					delta_to_best_time: true;
+					delta_to_session_best_time: true;
+					reference_lap_id: true;
+				};
 				include: {
 					vehicle_state: true;
 					wheel_data: true;

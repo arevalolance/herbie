@@ -505,6 +505,10 @@ class Timing(DataAdapter):
         """Time behind next place (seconds)"""
         return rmnan(self.info.rf2ScorVeh(index).mTimeBehindNext)
 
+    def delta_best(self, index: int | None = None) -> float:
+        """Delta time to best lap (seconds)"""
+        return rmnan(self.info.rf2TeleVeh(index).mDeltaBest)
+
 
 class Tyre(DataAdapter):
     """Tyre"""

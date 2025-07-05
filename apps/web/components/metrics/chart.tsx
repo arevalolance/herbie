@@ -8,10 +8,13 @@ import {
 	ChartTooltip,
 	ChartTooltipContent,
 } from "@workspace/ui/components/chart"
+import { TelemetryChartTooltip } from "@/components/telemetry-chart-tooltip"
 
 type DataPoint = {
 	date: string;
 	events: number;
+	delta_to_best?: number;
+	delta_to_session_best?: number;
 };
 
 type ZoomableChartProps = {
@@ -186,18 +189,8 @@ function PureZoomableChart({ data: initialData, title, syncId }: ZoomableChartPr
 
 	// Memoize the tooltip content component
 	const tooltipContent = useMemo(() => (
-		<ChartTooltipContent
-			className="w-[150px] sm:w-[200px] font-mono text-xs sm:text-sm"
-			nameKey="events"
-			labelFormatter={(value) => {
-				const num = parseFloat(value as string);
-				if (!Number.isNaN(num)) {
-					return `${Math.round(num * 100)}% lap`;
-				}
-				return new Date(value as string).toLocaleString();
-			}}
-		/>
-	), []);
+		<TelemetryChartTooltip title={title} />
+	), [title]);
 
 	const dynamicConfig = useMemo(() => ({
 		events: {

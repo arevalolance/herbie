@@ -221,6 +221,9 @@ model telemetry_logs {
 	clutch                  Float?                    @db.Real
 	steering                Float?                    @db.Real
 	fuel                    Float?                    @db.Real
+	delta_to_best_time      Float?                    @db.Real
+	delta_to_session_best_time Float?                @db.Real
+	reference_lap_id        Int?
 	brake_data              brake_data[]
 	electric_motor_data     electric_motor_data[]
 	engine_data             engine_data[]

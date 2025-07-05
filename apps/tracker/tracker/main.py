@@ -125,6 +125,7 @@ TELEMETRY_CLASSES = {
             "best_sector2",
             "behind_leader",
             "behind_next",
+            "delta_best",
         ],
         "class": rf2_data.Timing,
     },
