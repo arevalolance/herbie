@@ -1,0 +1,36 @@
+# Herbie Telemetry Agent Dependencies
+
+# GUI Framework
+PyQt6>=6.6.0
+
+# System Tray Integration
+pystray>=0.19.5
+
+# HTTP Client for API requests
+httpx>=0.25.0
+
+# Configuration Management
+pydantic>=2.5.0
+
+# Structured Logging
+structlog>=23.2.0
+
+# Image Processing for icons
+pillow>=10.0.0
+
+# Application directories
+appdirs>=1.4.4
+
+# Process monitoring
+psutil>=5.9.0
+
+# Async support
+asyncio-mqtt>=0.13.0
+
+# JSON handling
+orjson>=3.9.0
+
+# Development dependencies
+black>=23.0.0
+pytest>=7.4.0
+pytest-asyncio>=0.21.0

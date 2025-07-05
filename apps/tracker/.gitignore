@@ -345,3 +345,38 @@ healthchecksdb
 # uv
 .venv/
 uv.lock
+
+# Herbie Telemetry Agent specific
+# Build artifacts
+build/
+dist/
+*.spec
+
+# Python virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Telemetry data
+tracker/telemetry_logs/
+*.csv
+
+# Settings and config
+config.json
+settings.json
+herbie_agent.log*
+
+# Development files
+run_dev.bat
+.pytest_cache/
+.mypy_cache/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.swp
+*.swo

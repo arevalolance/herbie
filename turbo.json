@@ -5,7 +5,7 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"],
       "env": ["WORKOS_API_KEY", "WORKOS_CLIENT_ID", "WORKOS_COOKIE_PASSWORD", "DATABASE_URL"]
     },
     "lint": {
@@ -17,6 +17,15 @@
     "dev": {
       "cache": false,
       "persistent": true
+    },
+    "install": {
+      "cache": false
+    },
+    "setup": {
+      "cache": false
+    },
+    "check-deps": {
+      "cache": false
     }
   }
 }
