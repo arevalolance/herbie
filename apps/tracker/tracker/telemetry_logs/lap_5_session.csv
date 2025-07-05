@@ -1,4 +1,0 @@
-ambient_temperature,blue_flag,elapsed,elapsed_time,end,green_flag,in_countdown,in_formation,in_race,lap_number,lap_type,pit_open,raininess,remaining,session_type,start,start_lights,track_name,track_temperature,wetness_0,wetness_1,wetness_2,wetness_average,wetness_maximum,wetness_minimum,yellow_flag
-25.0,False,3182.6,3182.96,10505.0,True,False,False,False,4,False,True,0.0,7322.4,1,43200.0,6,Lusail International Circuit,41.34898218552735,0.0,0.0,0.0,0.0,0.0,0.0,True
-25.0,False,3506.6,3506.5925,10505.0,True,False,False,False,5,False,True,0.0,6998.4,1,43200.0,6,Lusail International Circuit,41.38351950413943,0.0,0.0,0.0,0.0,0.0,0.0,False
-25.0,False,3506.6,3506.6925,10505.0,True,False,False,False,6,False,True,0.0,6998.4,1,43200.0,6,Lusail International Circuit,41.38351950413943,0.0,0.0,0.0,0.0,0.0,0.0,False
