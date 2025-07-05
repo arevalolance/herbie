@@ -1,0 +1,11 @@
+# This is a placeholder for the actual icon file
+# In a real implementation, you would need an actual .ico file here
+# You can create one using tools like GIMP, Paint.NET, or online converters
+
+# Recommended icon specifications for Windows:
+# - 16x16, 32x32, 48x48, and 256x256 pixel sizes
+# - Use the Herbie logo or a racing-themed icon
+# - Should be professional and easily recognizable in the system tray
+
+# Temporary solution: Use a simple colored square
+# In production, replace this with actual icon data
