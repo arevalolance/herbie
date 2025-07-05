@@ -31,13 +31,6 @@ export default async function CategoriesPage() {
                                     </CardHeader>
                                     <CardContent className="space-y-4">
                                         <div className="space-y-2">
-                                            <div className="flex items-center gap-2">
-                                                <Gamepad2 className="h-4 w-4" />
-                                                <span className="text-sm font-medium">
-                                                    {category.sessions?.sim_name || "Unknown Sim"}
-                                                </span>
-                                            </div>
-                                            
                                             <div className="flex items-center gap-1 text-sm text-muted-foreground">
                                                 <Clock className="h-4 w-4" />
                                                 <span>{category._count.laps} laps recorded</span>

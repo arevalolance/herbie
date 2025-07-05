@@ -42,13 +42,6 @@ export default async function TracksPage() {
                                     <CardContent className="space-y-4">
                                         <div className="space-y-2">
                                             <div className="flex items-center gap-2">
-                                                <Gamepad2 className="h-4 w-4" />
-                                                <span className="text-sm font-medium">
-                                                    {track.sim_name || "Unknown Sim"}
-                                                </span>
-                                            </div>
-                                            
-                                            <div className="flex items-center gap-2">
                                                 <Badge variant="secondary" className="text-xs">
                                                     {getSessionTypeName(track.session_type)}
                                                 </Badge>

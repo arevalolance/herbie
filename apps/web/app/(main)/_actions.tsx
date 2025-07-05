@@ -400,3 +400,111 @@ export async function getCommunityActivity(limit: number = 6) {
 
     return communityLaps;
 }
+
+export async function getRecentActivityForSidebar(limit: number = 5) {
+    const { user } = await withAuth();
+    
+    if (!user) {
+        return [];
+    }
+    
+    const recentLaps = await prisma.laps.findMany({
+        where: {
+            user_id: user.id,
+            is_valid: true
+        },
+        include: {
+            vehicles: {
+                select: {
+                    vehicle_name: true,
+                    class_name: true
+                }
+            },
+            sessions: {
+                select: {
+                    track_name: true,
+                    sim_name: true,
+                    session_type: true
+                }
+            }
+        },
+        orderBy: {
+            lap_start_time: 'desc'
+        },
+        take: limit
+    });
+
+    // Helper function to format lap time
+    const formatLapTime = (timeInSeconds: number | null): string => {
+        if (!timeInSeconds) return '';
+        const minutes = Math.floor(timeInSeconds / 60);
+        const seconds = (timeInSeconds % 60).toFixed(3);
+        return `${minutes}:${seconds.padStart(6, '0')}`;
+    };
+
+    // Helper function to get session type name
+    const getSessionTypeName = (sessionType: number | null): string => {
+        if (!sessionType) return '';
+        switch (sessionType) {
+            case 1: return 'Practice';
+            case 2: return 'Qualifying';
+            case 3: return 'Race';
+            case 4: return 'Time Trial';
+            case 5: return 'Warmup';
+            case 6: return 'Formation';
+            default: return 'Session';
+        }
+    };
+
+    // Helper function to get relative time
+    const getRelativeTime = (date: Date): string => {
+        const now = new Date();
+        const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+        
+        if (diffInHours < 1) return 'Just now';
+        if (diffInHours < 24) return `${diffInHours}h ago`;
+        if (diffInHours < 48) return 'Yesterday';
+        const days = Math.floor(diffInHours / 24);
+        if (days < 7) return `${days}d ago`;
+        return date.toLocaleDateString();
+    };
+
+    // Transform the data to match the expected format for NavRecentActivity
+    return recentLaps.map(lap => {
+        const carName = lap.vehicles?.vehicle_name || 'Unknown Car';
+        const trackName = lap.sessions?.track_name || 'Unknown Track';
+        const lapTime = formatLapTime(lap.lap_time);
+        const sessionType = getSessionTypeName(lap.sessions?.session_type);
+        const relativeTime = getRelativeTime(lap.lap_start_time);
+        const isPB = lap.is_personal_best;
+
+        // Create a more descriptive name
+        let displayName = '';
+        
+        // Add lap time if available
+        if (lapTime) {
+            displayName = `${lapTime} - ${carName}`;
+        } else {
+            displayName = `Lap ${lap.lap_number} - ${carName}`;
+        }
+        
+        // Add track name (shortened if necessary)
+        const shortTrackName = trackName.length > 20 ? trackName.substring(0, 20) + '...' : trackName;
+        displayName += ` @ ${shortTrackName}`;
+        
+        // Add session type if available
+        if (sessionType) {
+            displayName += ` (${sessionType})`;
+        }
+        
+        // Add PB indicator
+        if (isPB) {
+            displayName += ' 🏆';
+        }
+
+        return {
+            name: displayName,
+            url: `/analyze/laps/${lap.id}`
+        };
+    });
+}

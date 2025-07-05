@@ -59,12 +59,6 @@ export default async function CategoryLapsPage({ params }: PageProps) {
                     <Trophy className="h-6 w-6" />
                     <div>
                         <h1 className="text-2xl font-bold">{category.class_name}</h1>
-                        <div className="flex items-center gap-2 mt-1">
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                <Gamepad2 className="h-3 w-3" />
-                                <span>{category.sessions?.sim_name}</span>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>

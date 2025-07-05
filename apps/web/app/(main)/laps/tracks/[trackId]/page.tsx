@@ -67,10 +67,6 @@ export default async function TrackLapsPage({ params }: PageProps) {
                             <Badge variant="secondary">
                                 {getSessionTypeName(track.session_type)}
                             </Badge>
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                <Gamepad2 className="h-3 w-3" />
-                                <span>{track.sim_name}</span>
-                            </div>
                         </div>
                     </div>
                 </div>

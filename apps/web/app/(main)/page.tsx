@@ -7,12 +7,12 @@ import { syncUserToDatabase } from '../../lib/auth-sync'
 import { getOverviewStats, getRecentActivity, getQuickNavigation, getCommunityActivity } from './_actions'
 import { LapCard } from '@/components/lap-card'
 import { CommunityLapCard } from '@/components/community-lap-card'
-import { 
-  Clock, 
-  Trophy, 
-  MapPin, 
-  Car, 
-  Timer, 
+import {
+  Clock,
+  Trophy,
+  MapPin,
+  Car,
+  Timer,
   Activity,
   TrendingUp,
   Target,
@@ -21,11 +21,11 @@ import {
 
 function formatTime(seconds: number | null): string {
   if (!seconds) return "N/A";
-  
+
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
-  
+
   if (hours > 0) {
     return `${hours}h ${minutes}m`;
   } else if (minutes > 0) {
@@ -38,7 +38,7 @@ function formatTime(seconds: number | null): string {
 
 function formatDistance(meters: number | null): string {
   if (!meters) return "N/A";
-  
+
   const km = meters / 1000;
   return `${km.toFixed(1)} km`;
 }
@@ -269,7 +269,7 @@ export default async function Page() {
             <Link href="/laps">View All</Link>
           </Button>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {recentActivity.map((lap) => (
             <LapCard key={lap.id} lap={lap} />
@@ -303,7 +303,7 @@ export default async function Page() {
             Recent laps from other drivers
           </Badge>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {communityActivity.map((lap) => (
             <CommunityLapCard key={lap.id} lap={lap} />
@@ -316,7 +316,7 @@ export default async function Page() {
               <Users className="h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="font-semibold mb-2">No community activity yet</h3>
               <p className="text-muted-foreground text-center mb-4">
-                Be the first to share your racing telemetry with the community!
+                Coming soon!
               </p>
             </CardContent>
           </Card>

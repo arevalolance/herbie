@@ -147,7 +147,6 @@ export function CommunityLapCard({ lap }: CommunityLapCardProps) {
                     
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <User className="h-3 w-3" suppressHydrationWarning />
-                        {lap.sessions?.sim_name || "rFactor 2"}
                     </div>
                 </div>
             </CardContent>

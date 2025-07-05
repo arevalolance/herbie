@@ -39,11 +39,6 @@ const data = {
       isActive: true,
     },
     {
-      title: "Analyze",
-      url: "/analyze",
-      icon: Waypoints,
-    },
-    {
       title: "Laps",
       url: "/laps",
       icon: Car,
@@ -92,7 +87,12 @@ const data = {
   ],
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({ 
+  recentActivity, 
+  ...props 
+}: React.ComponentProps<typeof Sidebar> & {
+  recentActivity?: Array<{ name: string; url: string }>
+}) {
   return (
     <Sidebar
       className="top-(--header-height) h-[calc(100svh-var(--header-height))]!"
@@ -117,7 +117,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavRecentActivity recentActivity={data.recentActivity} />
+        <NavRecentActivity recentActivity={recentActivity || data.recentActivity} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>

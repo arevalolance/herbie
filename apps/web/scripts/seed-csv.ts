@@ -163,7 +163,7 @@ async function seedData(userId: string, csvDirectory: string) {
       session_stamp: BigInt(Date.now()),
       session_type: safeInt(firstSessionData?.session_type) ?? 0,
       track_name: safeString(firstSessionData?.track_name) || 'Unknown Track',
-      sim_name: 'rFactor 2',
+      sim_name: 'Le Mans Ultimate',
       api_version: '1.0',
       session_length: safeFloat(firstSessionData?.elapsed),
       title: `Imported Session ${new Date().toISOString()}`,
