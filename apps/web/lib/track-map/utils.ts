@@ -1,4 +1,5 @@
 import { LapPoint } from "@/components/metrics/track-map";
+import { calculateSpeed } from "@workspace/ui/lib/utils";
 
 /**
  * Ramer–Douglas–Peucker polyline simplification algorithm
@@ -264,7 +265,7 @@ export function generateRacingLine(
 				x: Number(log.position_x),
 				y: Number(log.position_y),
 				meta: {
-					speed: log.speed ?? 0,
+					speed: calculateSpeed(log.velocity_longitudinal, log.velocity_lateral, log.velocity_vertical),
 					throttle: log.throttle ?? 0,
 					brake: log.brake ?? 0,
 					gear: log.gear ?? 0,
@@ -304,8 +305,10 @@ export function generateSpeedColoredLine(
 		return { id: `${lapId}-speed`, points: [], color, highlight: false };
 	}
 
-	// Calculate speed range for color mapping
-	const speeds = telemetryLogs.map(log => log.speed ? Number(log.speed) : 0);
+	// Calculate speed range for color mapping using 3D velocity
+	const speeds = telemetryLogs.map(log => 
+		calculateSpeed(log.velocity_longitudinal, log.velocity_lateral, log.velocity_vertical)
+	);
 	const minSpeed = Math.min(...speeds);
 	const maxSpeed = Math.max(...speeds);
 	const speedRange = maxSpeed - minSpeed;
@@ -314,7 +317,7 @@ export function generateSpeedColoredLine(
 		.map((log, index) => {
 			if (log.position_x == null || log.position_y == null) return null;
 
-			const speed = log.speed ? Number(log.speed) : 0;
+			const speed = calculateSpeed(log.velocity_longitudinal, log.velocity_lateral, log.velocity_vertical);
 			// Map speed to color intensity (0-1)
 			const speedRatio = speedRange > 0 ? (speed - minSpeed) / speedRange : 0;
 
@@ -522,11 +525,7 @@ export function generateChartData(telemetryLogs: TelemetryLog[]): ChartData[] {
 			title: "Speed",
 			data: telemetryLogs.map((log) => ({
 				date: (log.lap_progress ?? 0).toString(),
-				events: Math.sqrt(
-					Math.pow(log.velocity_longitudinal ?? 0, 2) +
-					Math.pow(log.velocity_lateral ?? 0, 2) +
-					Math.pow(log.velocity_vertical ?? 0, 2)
-				) * 3.6, // Convert m/s to km/h
+				events: calculateSpeed(log.velocity_longitudinal, log.velocity_lateral, log.velocity_vertical),
 			})),
 		},
 		{

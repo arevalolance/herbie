@@ -1,0 +1,402 @@
+"use server";
+
+import prisma from "@/lib/prisma";
+import { withAuth } from '@workos-inc/authkit-nextjs';
+
+export async function getOverviewStats() {
+    const { user } = await withAuth();
+    
+    if (!user) {
+        return {
+            totalLaps: 0,
+            personalBests: 0,
+            uniqueTracks: 0,
+            uniqueVehicles: 0,
+            totalDrivingTime: 0,
+            recentSessions: 0,
+            avgSessionLength: null,
+            totalDistance: 0
+        };
+    }
+    
+    const [
+        totalLaps,
+        personalBests,
+        uniqueTracks,
+        uniqueVehicles,
+        recentSessions,
+        lapSummaries,
+        sessions
+    ] = await Promise.all([
+        prisma.laps.count({
+            where: {
+                user_id: user.id,
+                is_valid: true
+            }
+        }),
+        prisma.laps.count({
+            where: {
+                user_id: user.id,
+                is_personal_best: true,
+                is_valid: true
+            }
+        }),
+        prisma.sessions.findMany({
+            where: {
+                user_id: user.id,
+                laps: {
+                    some: {
+                        is_valid: true
+                    }
+                }
+            },
+            select: {
+                track_name: true
+            },
+            distinct: ['track_name']
+        }).then(tracks => tracks.length),
+        prisma.vehicles.findMany({
+            where: {
+                laps: {
+                    some: {
+                        user_id: user.id,
+                        is_valid: true
+                    }
+                }
+            },
+            select: {
+                vehicle_name: true,
+                class_name: true
+            },
+            distinct: ['vehicle_name', 'class_name']
+        }).then(vehicles => vehicles.length),
+        prisma.sessions.count({
+            where: {
+                user_id: user.id,
+                created_at: {
+                    gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Last 30 days
+                }
+            }
+        }),
+        prisma.lap_summary.findMany({
+            where: {
+                laps: {
+                    user_id: user.id,
+                    is_valid: true
+                }
+            },
+            select: {
+                distance_covered: true
+            }
+        }),
+        prisma.sessions.findMany({
+            where: {
+                user_id: user.id
+            },
+            include: {
+                _count: {
+                    select: {
+                        laps: {
+                            where: {
+                                is_valid: true
+                            }
+                        }
+                    }
+                },
+                laps: {
+                    where: {
+                        is_valid: true,
+                        lap_time: {
+                            not: null
+                        }
+                    },
+                    select: {
+                        lap_time: true
+                    }
+                }
+            }
+        })
+    ]);
+
+    // Calculate driving statistics
+    const validSessions = sessions.filter(session => session.laps.length > 0);
+    const totalDrivingTime = validSessions.reduce((sum, session) => {
+        return sum + session.laps.reduce((sessionSum, lap) => sessionSum + (lap.lap_time || 0), 0);
+    }, 0);
+    
+    const avgSessionLength = validSessions.length > 0 
+        ? Math.round(validSessions.reduce((sum, session) => sum + session._count.laps, 0) / validSessions.length)
+        : null;
+    
+    const totalDistance = lapSummaries
+        .filter(summary => summary.distance_covered !== null)
+        .reduce((sum, summary) => sum + (summary.distance_covered as number), 0);
+
+    return {
+        totalLaps,
+        personalBests,
+        uniqueTracks,
+        uniqueVehicles,
+        totalDrivingTime,
+        recentSessions,
+        avgSessionLength,
+        totalDistance
+    };
+}
+
+export async function getRecentActivity(limit: number = 10) {
+    const { user } = await withAuth();
+    
+    if (!user) {
+        return [];
+    }
+    
+    const recentLaps = await prisma.laps.findMany({
+        where: {
+            user_id: user.id,
+            is_valid: true
+        },
+        include: {
+            vehicles: {
+                select: {
+                    vehicle_name: true,
+                    class_name: true
+                }
+            },
+            sessions: {
+                select: {
+                    track_name: true,
+                    sim_name: true,
+                    session_type: true
+                }
+            },
+            lap_summary: {
+                select: {
+                    max_speed: true,
+                    avg_speed: true
+                }
+            }
+        },
+        orderBy: {
+            lap_start_time: 'desc'
+        },
+        take: limit
+    });
+
+    return recentLaps;
+}
+
+export async function getPerformanceTrends(days: number = 30) {
+    const { user } = await withAuth();
+    
+    if (!user) {
+        return {
+            lapTimes: [],
+            speeds: [],
+            sessionActivity: []
+        };
+    }
+
+    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const [lapTrends, speedTrends, sessionActivity] = await Promise.all([
+        // Lap time trends by day
+        prisma.laps.findMany({
+            where: {
+                user_id: user.id,
+                is_valid: true,
+                lap_time: { not: null },
+                lap_start_time: { gte: cutoffDate }
+            },
+            select: {
+                lap_time: true,
+                lap_start_time: true
+            },
+            orderBy: {
+                lap_start_time: 'asc'
+            }
+        }),
+        // Speed trends from lap summaries
+        prisma.lap_summary.findMany({
+            where: {
+                laps: {
+                    user_id: user.id,
+                    is_valid: true,
+                    lap_start_time: { gte: cutoffDate }
+                }
+            },
+            include: {
+                laps: {
+                    select: {
+                        lap_start_time: true
+                    }
+                }
+            }
+        }),
+        // Session activity by day
+        prisma.sessions.findMany({
+            where: {
+                user_id: user.id,
+                created_at: { gte: cutoffDate }
+            },
+            select: {
+                created_at: true,
+                track_name: true
+            },
+            orderBy: {
+                created_at: 'asc'
+            }
+        })
+    ]);
+
+    return {
+        lapTimes: lapTrends,
+        speeds: speedTrends,
+        sessionActivity
+    };
+}
+
+export async function getQuickNavigation() {
+    const { user } = await withAuth();
+    
+    if (!user) {
+        return {
+            frequentTracks: [],
+            frequentVehicles: [],
+            recentSessions: []
+        };
+    }
+
+    const [frequentTracks, frequentVehicles, recentSessions] = await Promise.all([
+        // Most driven tracks
+        prisma.sessions.groupBy({
+            by: ['track_name'],
+            where: {
+                user_id: user.id,
+                laps: {
+                    some: {
+                        is_valid: true
+                    }
+                }
+            },
+            _count: {
+                id: true
+            },
+            orderBy: {
+                _count: {
+                    id: 'desc'
+                }
+            },
+            take: 5
+        }),
+        // Most driven vehicles
+        prisma.vehicles.findMany({
+            where: {
+                laps: {
+                    some: {
+                        user_id: user.id,
+                        is_valid: true
+                    }
+                }
+            },
+            include: {
+                _count: {
+                    select: {
+                        laps: {
+                            where: {
+                                user_id: user.id,
+                                is_valid: true
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: {
+                laps: {
+                    _count: 'desc'
+                }
+            },
+            take: 5
+        }),
+        // Recent sessions
+        prisma.sessions.findMany({
+            where: {
+                user_id: user.id
+            },
+            select: {
+                id: true,
+                track_name: true,
+                sim_name: true,
+                session_type: true,
+                created_at: true,
+                _count: {
+                    select: {
+                        laps: {
+                            where: {
+                                is_valid: true
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: {
+                created_at: 'desc'
+            },
+            take: 5
+        })
+    ]);
+
+    return {
+        frequentTracks,
+        frequentVehicles,
+        recentSessions
+    };
+}
+
+export async function getCommunityActivity(limit: number = 6) {
+    const { user } = await withAuth();
+    
+    // Get recent laps from other users (excluding current user if logged in)
+    const communityLaps = await prisma.laps.findMany({
+        where: {
+            is_valid: true,
+            ...(user ? { user_id: { not: user.id } } : {}), // Exclude current user's laps if logged in
+            lap_time: { not: null } // Only show laps with valid times
+        },
+        include: {
+            vehicles: {
+                select: {
+                    vehicle_name: true,
+                    class_name: true
+                }
+            },
+            sessions: {
+                select: {
+                    track_name: true,
+                    sim_name: true,
+                    session_type: true
+                }
+            },
+            lap_summary: {
+                select: {
+                    max_speed: true,
+                    avg_speed: true
+                }
+            },
+            users: {
+                select: {
+                    first_name: true,
+                    last_name: true,
+                    profile_picture_url: true,
+                    created_at: true
+                }
+            }
+        },
+        orderBy: {
+            lap_start_time: 'desc'
+        },
+        take: limit
+    });
+
+    return communityLaps;
+}

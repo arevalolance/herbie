@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import prisma from '../lib/prisma.js';
+import { calculateSpeed } from '@workspace/ui/lib/utils';
 
 // Load environment variables
 dotenv.config();
@@ -509,10 +510,36 @@ async function seedData(userId: string, csvDirectory: string) {
     const inputRows = lapClasses.inputs || [];
     
     if (vehicleRows.length > 0) {
-      const speeds = vehicleRows.map(r => safeFloat(r.speed)).filter(s => s !== null) as number[];
+      // Calculate speeds using 3D velocity components instead of direct speed field
+      const speeds = vehicleRows.map(r => {
+        const vLong = safeFloat(r.velocity_longitudinal);
+        const vLat = safeFloat(r.velocity_lateral);
+        const vVert = safeFloat(r.velocity_vertical);
+        return calculateSpeed(vLong, vLat, vVert);
+      }).filter(s => s > 0); // Filter out zero speeds
+      
       const rpms = engineRows.map(r => safeFloat(r.rpm)).filter(r => r !== null) as number[];
       const throttles = inputRows.map(r => safeFloat(r.throttle)).filter(t => t !== null) as number[];
       const brakes = inputRows.map(r => safeFloat(r.brake)).filter(b => b !== null) as number[];
+      
+      // Calculate distance covered from position data
+      let totalDistance = 0;
+      for (let i = 1; i < vehicleRows.length; i++) {
+        const prevRow = vehicleRows[i - 1];
+        const currRow = vehicleRows[i];
+        if (!prevRow || !currRow) continue;
+        
+        const prevX = safeFloat(prevRow.position_longitudinal);
+        const prevY = safeFloat(prevRow.position_lateral);
+        const currX = safeFloat(currRow.position_longitudinal);
+        const currY = safeFloat(currRow.position_lateral);
+        
+        if (prevX !== null && prevY !== null && currX !== null && currY !== null) {
+          const dx = currX - prevX;
+          const dy = currY - prevY;
+          totalDistance += Math.sqrt(dx * dx + dy * dy);
+        }
+      }
       
       await prisma.lap_summary.create({
         data: {
@@ -530,7 +557,8 @@ async function seedData(userId: string, csvDirectory: string) {
           fuel_ending: safeFloat(vehicleRows[vehicleRows.length - 1]?.fuel),
           fuel_used: vehicleRows.length > 1 ? 
             (safeFloat(vehicleRows[0]?.fuel) || 0) - (safeFloat(vehicleRows[vehicleRows.length - 1]?.fuel) || 0) : 
-            null
+            null,
+          distance_covered: totalDistance > 0 ? totalDistance : null
         }
       });
     }

@@ -34,19 +34,9 @@ const data = {
   navMain: [
     {
       title: "Overview",
-      url: "#",
+      url: "/",
       icon: SquareTerminal,
       isActive: true,
-      items: [
-        {
-          title: "On track",
-          url: "#",
-        },
-        {
-          title: "Recent Activity",
-          url: "#",
-        },
-      ],
     },
     {
       title: "Analyze",
