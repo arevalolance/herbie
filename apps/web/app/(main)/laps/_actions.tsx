@@ -19,7 +19,8 @@ export async function getLaps(limit: number = 20, offset: number = 0) {
             vehicles: {
                 select: {
                     vehicle_name: true,
-                    class_name: true
+                    class_name: true,
+                    driver_name: true
                 }
             },
             sessions: {
@@ -33,6 +34,11 @@ export async function getLaps(limit: number = 20, offset: number = 0) {
                 select: {
                     max_speed: true,
                     avg_speed: true
+                }
+            },
+            users: {
+                select: {
+                    name: true
                 }
             }
         },
@@ -63,7 +69,8 @@ export async function getLapsByVehicle(vehicleId: number, limit: number = 20, of
             vehicles: {
                 select: {
                     vehicle_name: true,
-                    class_name: true
+                    class_name: true,
+                    driver_name: true
                 }
             },
             sessions: {
@@ -77,6 +84,11 @@ export async function getLapsByVehicle(vehicleId: number, limit: number = 20, of
                 select: {
                     max_speed: true,
                     avg_speed: true
+                }
+            },
+            users: {
+                select: {
+                    name: true
                 }
             }
         },
@@ -106,7 +118,8 @@ export async function getRecentLaps(limit: number = 10) {
             vehicles: {
                 select: {
                     vehicle_name: true,
-                    class_name: true
+                    class_name: true,
+                    driver_name: true
                 }
             },
             sessions: {
@@ -120,6 +133,11 @@ export async function getRecentLaps(limit: number = 10) {
                 select: {
                     max_speed: true,
                     avg_speed: true
+                }
+            },
+            users: {
+                select: {
+                    name: true
                 }
             }
         },
@@ -204,11 +222,14 @@ export async function getFilterData() {
         return {
             vehicles: [],
             tracks: [],
-            categories: []
+            categories: [],
+            drivers: [],
+            teams: [],
+            sessionTypes: []
         };
     }
 
-    const [vehicles, tracks, categories] = await Promise.all([
+    const [vehicles, tracks, categories, sessionTypes] = await Promise.all([
         prisma.vehicles.findMany({
             where: {
                 laps: {
@@ -251,15 +272,40 @@ export async function getFilterData() {
                 }
             },
             select: {
-                class_name: true
+                class_name: true,
+                driver_name: true
             },
-            distinct: ['class_name']
+            distinct: ['class_name', 'driver_name']
+        }),
+        prisma.sessions.findMany({
+            where: {
+                user_id: user.id,
+                laps: {
+                    some: {
+                        is_valid: true
+                    }
+                }
+            },
+            select: {
+                session_type: true
+            },
+            distinct: ['session_type']
         })
     ]);
 
     return {
         vehicles,
         tracks,
-        categories: categories.map(c => ({ name: c.class_name }))
+        categories: categories.map(c => ({ name: c.class_name })),
+        drivers: Array.from(new Set(categories.map(c => c.driver_name).filter(Boolean))).map(name => ({ name })),
+        teams: Array.from(new Set(categories.map(c => c.class_name).filter(Boolean))).map(name => ({ name })),
+        sessionTypes: Array.from(new Set(
+            sessionTypes
+                .map(type => type.session_type)
+                .filter((value): value is number => value !== null && value !== undefined)
+        )).map(value => ({
+            value,
+            label: value === 0 ? "Practice" : value === 1 ? "Qualifying" : value === 2 ? "Race" : "Session"
+        }))
     };
 }
