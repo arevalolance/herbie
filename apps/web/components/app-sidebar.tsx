@@ -2,17 +2,18 @@
 
 import * as React from "react"
 import {
+  BarChart3,
+  Bell,
   BookOpen,
-  Bot,
-  Car,
   Command,
-  Frame,
-  LifeBuoy,
-  Map,
+  Database,
+  Home,
   PieChart,
   Send,
   Settings2,
-  SquareTerminal,
+  UploadCloud,
+  User,
+  Users,
   Waypoints,
 } from "lucide-react"
 
@@ -20,6 +21,7 @@ import { NavMain } from "@/components/nav-main"
 import { NavRecentActivity } from "@/components/nav-recent-activity"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
+import { NavQuickActions } from "./nav-quick-actions"
 import {
   Sidebar,
   SidebarContent,
@@ -31,44 +33,76 @@ import {
 } from "@workspace/ui/components/sidebar"
 
 const data = {
-  navMain: [
+  quickActions: [
     {
-      title: "Overview",
-      url: "/",
-      icon: SquareTerminal,
-      isActive: true,
+      title: "Analyze new lap",
+      url: "/analyze/new",
+      icon: Waypoints,
     },
     {
-      title: "Laps",
-      url: "/laps",
-      icon: Car,
-      isActive: true,
-      items: [
-        {
-          title: "Cars",
-          url: "/laps/cars",
-        },
-        {
-          title: "Tracks",
-          url: "/laps/tracks",
-        },
-        {
-          title: "Categories",
-          url: "/laps/categories",
-        },
-      ],
+      title: "Upload session",
+      url: "/sessions/upload",
+      icon: UploadCloud,
     },
   ],
-  navSecondary: [
+  navMain: [
     {
-      title: "Support",
-      url: "#",
-      icon: LifeBuoy,
+      title: "Analyze Lap",
+      url: "/analyze",
+      icon: Waypoints,
+      isActive: true,
     },
     {
-      title: "Feedback",
-      url: "#",
+      title: "Garage Overview",
+      url: "/garage",
+      icon: Home,
+    },
+    {
+      title: "Sessions Library",
+      url: "/sessions",
+      icon: BookOpen,
+    },
+    {
+      title: "Comparisons",
+      url: "/comparisons",
+      icon: BarChart3,
+    },
+    {
+      title: "Setups & Notes",
+      url: "/setups-notes",
+      icon: Settings2,
+    },
+    {
+      title: "Community",
+      url: "/community",
+      icon: Users,
+    },
+    {
+      title: "Telemetry Metrics Explorer",
+      url: "/telemetry/metrics",
+      icon: PieChart,
+    },
+    {
+      title: "Exports & Integrations",
+      url: "/exports",
       icon: Send,
+    },
+  ],
+  navWorkspace: [
+    {
+      title: "Profile & Access",
+      url: "/workspace/profile",
+      icon: User,
+    },
+    {
+      title: "Data Sources",
+      url: "/workspace/data-sources",
+      icon: Database,
+    },
+    {
+      title: "Notifications & Tasks",
+      url: "/workspace/notifications",
+      icon: Bell,
     },
   ],
   recentActivity: [
@@ -116,9 +150,14 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
+        <NavQuickActions actions={data.quickActions} />
         <NavMain items={data.navMain} />
         <NavRecentActivity recentActivity={recentActivity || data.recentActivity} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavSecondary
+          items={data.navWorkspace}
+          label="Workspace & Utility"
+          className="mt-auto"
+        />
       </SidebarContent>
       <SidebarFooter>
         <NavUser />
