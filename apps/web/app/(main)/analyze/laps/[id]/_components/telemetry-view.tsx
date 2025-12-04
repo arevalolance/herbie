@@ -19,6 +19,8 @@ import {
         type TelemetryLog
 } from "@/lib/track-map/utils";
 import { createLapComparison } from "../_actions";
+import { SessionNotebook } from "./session-notebook";
+import { LapTimelineEntry, SessionNote } from "./session-notebook-types";
 
 interface SectorFilterBarProps {
         sectorTimes: (number | null)[];
@@ -65,6 +67,8 @@ function formatSeconds(time?: number | null) {
 
 export function TelemetryView({
         lap,
+        sessionNotes,
+        lapTimeline,
         deepLinkSource,
 }: {
         lap: Prisma.lapsGetPayload<{
@@ -113,6 +117,8 @@ export function TelemetryView({
                         };
                 };
         }>;
+        sessionNotes: SessionNote[];
+        lapTimeline: LapTimelineEntry[];
         deepLinkSource?: string;
 }) {
         const [activeSectors, setActiveSectors] = useState<number[]>([0, 1, 2]);
@@ -301,6 +307,13 @@ export function TelemetryView({
 
         return (
                 <div className="flex flex-col gap-6">
+                        <SessionNotebook
+                                sessionId={lap.session_id}
+                                lapId={lap.id}
+                                initialNotes={sessionNotes}
+                                lapTimeline={lapTimeline}
+                        />
+
                         {deepLinkSource && (
                                 <Card>
                                         <CardContent className="flex items-center gap-3 py-3">
