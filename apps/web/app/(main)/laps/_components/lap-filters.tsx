@@ -4,13 +4,21 @@ import { useState } from "react";
 import { Button } from "@workspace/ui/components/button";
 import { Badge } from "@workspace/ui/components/badge";
 import { Input } from "@workspace/ui/components/input";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@workspace/ui/components/dropdown-menu";
-import { Search, X, Filter, ChevronDown } from "lucide-react";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger
+} from "@workspace/ui/components/dropdown-menu";
+import { Search, X, Filter, ChevronDown, Calendar, User, Users } from "lucide-react";
 
 interface LapFiltersProps {
     vehicles: Array<{ id: number; vehicle_name: string | null; class_name: string | null }>;
     tracks: Array<{ id: number; track_name: string | null; sim_name: string | null }>;
     categories: Array<{ name: string | null }>;
+    drivers: Array<{ name: string | null }>;
+    teams: Array<{ name: string | null }>;
+    sessionTypes: Array<{ value: number; label: string }>;
     onFiltersChange: (filters: FilterState) => void;
 }
 
@@ -19,15 +27,25 @@ export interface FilterState {
     vehicle: string;
     track: string;
     category: string;
+    sessionType: string;
+    driver: string;
+    team: string;
+    startDate: string;
+    endDate: string;
     personalBests: boolean;
 }
 
-export function LapFilters({ vehicles, tracks, categories, onFiltersChange }: LapFiltersProps) {
+export function LapFilters({ vehicles, tracks, categories, drivers, teams, sessionTypes, onFiltersChange }: LapFiltersProps) {
     const [filters, setFilters] = useState<FilterState>({
         searchTerm: "",
         vehicle: "all",
-        track: "all", 
+        track: "all",
         category: "all",
+        sessionType: "all",
+        driver: "all",
+        team: "all",
+        startDate: "",
+        endDate: "",
         personalBests: false
     });
 
@@ -45,16 +63,26 @@ export function LapFilters({ vehicles, tracks, categories, onFiltersChange }: La
             vehicle: "all",
             track: "all",
             category: "all",
+            sessionType: "all",
+            driver: "all",
+            team: "all",
+            startDate: "",
+            endDate: "",
             personalBests: false
         };
         setFilters(clearedFilters);
         onFiltersChange(clearedFilters);
     };
 
-    const hasActiveFilters = filters.searchTerm || 
-        filters.vehicle !== "all" || 
-        filters.track !== "all" || 
-        filters.category !== "all" || 
+    const hasActiveFilters = filters.searchTerm ||
+        filters.vehicle !== "all" ||
+        filters.track !== "all" ||
+        filters.category !== "all" ||
+        filters.sessionType !== "all" ||
+        filters.driver !== "all" ||
+        filters.team !== "all" ||
+        filters.startDate !== "" ||
+        filters.endDate !== "" ||
         filters.personalBests;
 
     return (
@@ -78,7 +106,17 @@ export function LapFilters({ vehicles, tracks, categories, onFiltersChange }: La
                     Filters
                     {hasActiveFilters && (
                         <Badge variant="secondary" className="ml-1 h-5 w-5 rounded-full p-0 text-xs">
-                            {[filters.vehicle !== "all", filters.track !== "all", filters.category !== "all", filters.personalBests].filter(Boolean).length}
+                            {[
+                                filters.vehicle !== "all",
+                                filters.track !== "all",
+                                filters.category !== "all",
+                                filters.sessionType !== "all",
+                                filters.driver !== "all",
+                                filters.team !== "all",
+                                filters.startDate !== "",
+                                filters.endDate !== "",
+                                filters.personalBests
+                            ].filter(Boolean).length}
                         </Badge>
                     )}
                 </Button>
@@ -145,7 +183,7 @@ export function LapFilters({ vehicles, tracks, categories, onFiltersChange }: La
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-sm font-medium">Category</label>  
+                        <label className="text-sm font-medium">Category</label>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="outline" className="w-full justify-between">
@@ -167,6 +205,101 @@ export function LapFilters({ vehicles, tracks, categories, onFiltersChange }: La
                                 ))}
                             </DropdownMenuContent>
                         </DropdownMenu>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Session Type</label>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" className="w-full justify-between">
+                                    {filters.sessionType === "all"
+                                        ? "All Sessions"
+                                        : sessionTypes.find(type => type.value.toString() === filters.sessionType)?.label ?? "Session"}
+                                    <ChevronDown className="h-4 w-4 opacity-50" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-56">
+                                <DropdownMenuItem onClick={() => updateFilter("sessionType", "all")}>
+                                    All Sessions
+                                </DropdownMenuItem>
+                                {sessionTypes.map(type => (
+                                    <DropdownMenuItem
+                                        key={type.value}
+                                        onClick={() => updateFilter("sessionType", type.value.toString())}
+                                    >
+                                        {type.label}
+                                    </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium flex items-center gap-2">
+                            <User className="h-4 w-4" /> Driver
+                        </label>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" className="w-full justify-between">
+                                    {filters.driver === "all" ? "All Drivers" : filters.driver || "Unknown Driver"}
+                                    <ChevronDown className="h-4 w-4 opacity-50" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-56">
+                                <DropdownMenuItem onClick={() => updateFilter("driver", "all")}>All Drivers</DropdownMenuItem>
+                                {drivers.map((driver, index) => (
+                                    <DropdownMenuItem
+                                        key={index}
+                                        onClick={() => updateFilter("driver", driver.name || "")}
+                                    >
+                                        {driver.name || "Unknown Driver"}
+                                    </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium flex items-center gap-2">
+                            <Users className="h-4 w-4" /> Team
+                        </label>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" className="w-full justify-between">
+                                    {filters.team === "all" ? "All Teams" : filters.team || "Unknown Team"}
+                                    <ChevronDown className="h-4 w-4 opacity-50" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-56">
+                                <DropdownMenuItem onClick={() => updateFilter("team", "all")}>All Teams</DropdownMenuItem>
+                                {teams.map((team, index) => (
+                                    <DropdownMenuItem
+                                        key={index}
+                                        onClick={() => updateFilter("team", team.name || "")}
+                                    >
+                                        {team.name || "Unknown Team"}
+                                    </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium flex items-center gap-2">
+                            <Calendar className="h-4 w-4" /> Date range
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <Input
+                                type="date"
+                                value={filters.startDate}
+                                onChange={e => updateFilter("startDate", e.target.value)}
+                            />
+                            <Input
+                                type="date"
+                                value={filters.endDate}
+                                onChange={e => updateFilter("endDate", e.target.value)}
+                            />
+                        </div>
                     </div>
 
                     <div className="space-y-2">
