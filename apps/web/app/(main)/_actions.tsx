@@ -329,6 +329,21 @@ export async function getQuickNavigation() {
                 sim_name: true,
                 session_type: true,
                 created_at: true,
+                laps: {
+                    where: {
+                        is_valid: true,
+                        lap_time: { not: null }
+                    },
+                    orderBy: {
+                        lap_time: 'asc'
+                    },
+                    select: {
+                        id: true,
+                        lap_time: true,
+                        lap_number: true,
+                    },
+                    take: 1
+                },
                 _count: {
                     select: {
                         laps: {

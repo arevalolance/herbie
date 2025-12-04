@@ -507,18 +507,35 @@ async function RecentSessionsCard({ quickNavPromise }: { quickNavPromise: Return
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {quickNav.recentSessions.map(session => (
-          <div key={session.id} className="flex flex-col space-y-1">
-            <div className="flex justify-between items-start">
-              <span className="font-medium text-sm truncate">{session.track_name}</span>
-              <Badge variant="outline" className="text-xs">{getSessionTypeName(session.session_type)}</Badge>
-            </div>
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{session._count.laps} laps</span>
-              <span>{new Date(session.created_at!).toLocaleDateString()}</span>
-            </div>
-          </div>
-        ))}
+        {quickNav.recentSessions.map(session => {
+          const bestLap = session.laps?.[0]
+          const deepLink = bestLap
+            ? `/analyze/laps/${bestLap.id}?from=Sessions%20overview&sessionId=${session.id}`
+            : `/laps?sessionId=${session.id}`
+
+          return (
+            <Link
+              key={session.id}
+              href={deepLink}
+              className="flex flex-col space-y-1 rounded-md border p-3 transition hover:border-primary"
+            >
+              <div className="flex justify-between items-start">
+                <span className="font-medium text-sm truncate">{session.track_name}</span>
+                <Badge variant="outline" className="text-xs">{getSessionTypeName(session.session_type)}</Badge>
+              </div>
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{session._count.laps} laps</span>
+                <span>{new Date(session.created_at!).toLocaleDateString()}</span>
+              </div>
+              {bestLap && (
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Best lap #{bestLap.lap_number ?? ""}</span>
+                  <span>{formatLapTime(bestLap.lap_time)}</span>
+                </div>
+              )}
+            </Link>
+          )
+        })}
         {quickNav.recentSessions.length === 0 && (
           <p className="text-sm text-muted-foreground">Your latest sessions will appear here.</p>
         )}
