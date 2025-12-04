@@ -4,12 +4,12 @@ import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
 
 export default function Layout({ children }: { children: React.ReactNode }) {
     return (
-        <div className="[--header-height:calc(--spacing(14))]">
-            <SidebarProvider className="flex flex-col">
+        <div className="[--header-height:3.5rem]">
+            <SidebarProvider className="flex min-h-svh flex-col bg-background text-foreground">
                 <SiteHeader />
                 <div className="flex flex-1">
                     <AppSidebarWrapper />
-                    <SidebarInset>
+                    <SidebarInset className="bg-background">
                         {children}
                     </SidebarInset>
                 </div>
