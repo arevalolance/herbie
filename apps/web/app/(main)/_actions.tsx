@@ -401,6 +401,213 @@ export async function getCommunityActivity(limit: number = 6) {
     return communityLaps;
 }
 
+export async function getDashboardHighlights() {
+    const { user } = await withAuth();
+
+    if (!user) {
+        return {
+            latestSession: null,
+            bestLap: null,
+            recentlyAnalyzed: [],
+            latestLapId: null,
+        };
+    }
+
+    const [latestSession, personalBest, fallbackBestLap, recentSummaries, latestLap] = await Promise.all([
+        prisma.sessions.findFirst({
+            where: { user_id: user.id },
+            orderBy: { created_at: "desc" },
+            select: {
+                id: true,
+                track_name: true,
+                sim_name: true,
+                session_type: true,
+                created_at: true,
+                _count: {
+                    select: {
+                        laps: true,
+                    },
+                },
+                laps: {
+                    where: {
+                        is_valid: true,
+                        lap_time: { not: null },
+                    },
+                    orderBy: {
+                        lap_time: "asc",
+                    },
+                    take: 1,
+                    select: {
+                        id: true,
+                        lap_number: true,
+                        lap_time: true,
+                        lap_start_time: true,
+                        is_valid: true,
+                        track_temp: true,
+                        ambient_temp: true,
+                        wetness: true,
+                        lap_summary: {
+                            select: {
+                                max_speed: true,
+                                distance_covered: true,
+                            },
+                        },
+                        vehicles: {
+                            select: {
+                                vehicle_name: true,
+                                class_name: true,
+                            },
+                        },
+                    },
+                },
+                session_conditions: {
+                    orderBy: {
+                        timestamp: "desc",
+                    },
+                    take: 1,
+                    select: {
+                        ambient_temperature: true,
+                        track_temperature: true,
+                        wetness_average: true,
+                        raininess: true,
+                    },
+                },
+            },
+        }),
+        prisma.laps.findFirst({
+            where: {
+                user_id: user.id,
+                is_valid: true,
+                lap_time: { not: null },
+                is_personal_best: true,
+            },
+            orderBy: {
+                lap_time: "asc",
+            },
+            include: {
+                lap_summary: {
+                    select: {
+                        max_speed: true,
+                        distance_covered: true,
+                    },
+                },
+                vehicles: {
+                    select: {
+                        vehicle_name: true,
+                        class_name: true,
+                    },
+                },
+                sessions: {
+                    select: {
+                        track_name: true,
+                        sim_name: true,
+                        session_type: true,
+                    },
+                },
+            },
+        }),
+        prisma.laps.findFirst({
+            where: {
+                user_id: user.id,
+                is_valid: true,
+                lap_time: { not: null },
+            },
+            orderBy: {
+                lap_time: "asc",
+            },
+            include: {
+                lap_summary: {
+                    select: {
+                        max_speed: true,
+                        distance_covered: true,
+                    },
+                },
+                vehicles: {
+                    select: {
+                        vehicle_name: true,
+                        class_name: true,
+                    },
+                },
+                sessions: {
+                    select: {
+                        track_name: true,
+                        sim_name: true,
+                        session_type: true,
+                    },
+                },
+            },
+        }),
+        prisma.lap_summary.findMany({
+            where: {
+                laps: {
+                    user_id: user.id,
+                },
+            },
+            include: {
+                laps: {
+                    select: {
+                        id: true,
+                        lap_number: true,
+                        lap_time: true,
+                        lap_start_time: true,
+                        is_valid: true,
+                        track_temp: true,
+                        ambient_temp: true,
+                        wetness: true,
+                        vehicles: {
+                            select: {
+                                vehicle_name: true,
+                                class_name: true,
+                            },
+                        },
+                        sessions: {
+                            select: {
+                                track_name: true,
+                                sim_name: true,
+                                session_type: true,
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: {
+                created_at: "desc",
+            },
+            take: 3,
+        }),
+        prisma.laps.findFirst({
+            where: {
+                user_id: user.id,
+            },
+            orderBy: {
+                lap_start_time: "desc",
+            },
+            select: {
+                id: true,
+            },
+        }),
+    ]);
+
+    const bestLap = personalBest || fallbackBestLap;
+
+    const recentlyAnalyzed = recentSummaries
+        .filter(summary => summary.laps !== null)
+        .map(summary => ({
+            id: summary.lap_id,
+            created_at: summary.created_at,
+            distance: summary.distance_covered,
+            max_speed: summary.max_speed,
+            lap: summary.laps!,
+        }));
+
+    return {
+        latestSession,
+        bestLap,
+        recentlyAnalyzed,
+        latestLapId: latestLap?.id ?? null,
+    };
+}
+
 export async function getRecentActivityForSidebar(limit: number = 5) {
     const { user } = await withAuth();
     
