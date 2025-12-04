@@ -1,8 +1,17 @@
+"use client";
+
+import { useTransition } from "react";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@workspace/ui/components/card";
 import { Badge } from "@workspace/ui/components/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@workspace/ui/components/avatar";
-import { Clock, Gauge, MapPin, Calendar, User } from "lucide-react";
+import { Button } from "@workspace/ui/components/button";
+import { Separator } from "@workspace/ui/components/separator";
+import { Calendar, Clock, Cloud, Droplets, Gauge, MapPin, User } from "lucide-react";
+import Link from "next/link";
 import { Prisma } from "@/generated/prisma";
+
+import { WeatherBadge } from "@/app/(main)/community/_components/community-lap-browser";
 
 type CommunityLapWithDetails = Prisma.lapsGetPayload<{
     include: {
@@ -15,6 +24,8 @@ type CommunityLapWithDetails = Prisma.lapsGetPayload<{
 
 interface CommunityLapCardProps {
     lap: CommunityLapWithDetails;
+    showActions?: boolean;
+    onForkComparison?: (lapId: number) => void;
 }
 
 function formatLapTime(timeInSeconds: number | null): string {
@@ -57,9 +68,10 @@ function getUserInitials(user: { first_name: string | null; last_name: string | 
     return firstName + lastName || "AD";
 }
 
-export function CommunityLapCard({ lap }: CommunityLapCardProps) {
+export function CommunityLapCard({ lap, showActions = false, onForkComparison }: CommunityLapCardProps) {
     const displayName = getUserDisplayName(lap.users);
     const initials = getUserInitials(lap.users);
+    const [isForking, startFork] = useTransition();
 
     return (
         <Card className="hover:shadow-md transition-shadow">
@@ -140,16 +152,63 @@ export function CommunityLapCard({ lap }: CommunityLapCardProps) {
                 </div>
                 
                 <div className="flex items-center justify-between pt-2 border-t">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Calendar className="h-3 w-3" suppressHydrationWarning />
                         {new Date(lap.lap_start_time).toLocaleDateString()}
                     </div>
-                    
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <User className="h-3 w-3" suppressHydrationWarning />
+
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <WeatherBadge wetness={lap.wetness} />
+                        <Separator orientation="vertical" className="h-5" />
+                        <div className="flex items-center gap-1">
+                            <Cloud className="h-3 w-3" suppressHydrationWarning />
+                            <span>Ambient {formatTemperature(lap.ambient_temp)}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <Gauge className="h-3 w-3" suppressHydrationWarning />
+                            <span>Track {formatTemperature(lap.track_temp)}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <Droplets className="h-3 w-3" suppressHydrationWarning />
+                            <span>Wetness {formatWetness(lap.wetness)}</span>
+                        </div>
                     </div>
                 </div>
+
+                {showActions && (
+                    <div className="flex items-center justify-between pt-3">
+                        <div className="text-xs text-muted-foreground flex items-center gap-2">
+                            <User className="h-3 w-3" suppressHydrationWarning />
+                            Uploaded by {displayName}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <Button asChild size="sm" variant="outline">
+                                <Link href={`/analyze/laps/${lap.id}`}>
+                                    Analyze Lap
+                                </Link>
+                            </Button>
+                            <Button
+                                size="sm"
+                                onClick={() => onForkComparison && startFork(() => onForkComparison(lap.id))}
+                                disabled={!onForkComparison || isForking}
+                            >
+                                {isForking ? "Forking..." : "Fork comparison"}
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </CardContent>
         </Card>
     );
+}
+
+function formatTemperature(value: number | null | undefined) {
+    if (value === null || value === undefined) return "--";
+    return `${value.toFixed(1)}°C`;
+}
+
+function formatWetness(value: number | null | undefined) {
+    if (value === null || value === undefined) return "--";
+    return `${(value * 100).toFixed(0)}%`;
 }
