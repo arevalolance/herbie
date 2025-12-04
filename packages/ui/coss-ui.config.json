@@ -1,0 +1,24 @@
+{
+  "$schema": "https://coss-ui.dev/schema.json",
+  "package": "@biotechusa/pdo-ui",
+  "rsc": true,
+  "tailwind": {
+    "css": "src/styles/globals.css",
+    "sources": [
+      "../../apps/**/*.{ts,tsx}",
+      "../../components/**/*.{ts,tsx}",
+      "./src/**/*.{ts,tsx}"
+    ]
+  },
+  "css": {
+    "globals": "src/styles/globals.css",
+    "tokens": "src/styles/design-tokens.css"
+  },
+  "aliases": {
+    "components": "@workspace/ui/components",
+    "utils": "@workspace/ui/lib/utils",
+    "hooks": "@workspace/ui/hooks",
+    "lib": "@workspace/ui/lib",
+    "ui": "@workspace/ui/components"
+  }
+}
