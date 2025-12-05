@@ -54,6 +54,16 @@ export function TelemetryChartTooltip({
       case 'brake':
       case 'steering':
         return `${value.toFixed(1)}%`
+      case 'ride height':
+        return `${value.toFixed(1)} mm`
+      case 'tire temperature':
+        return `${value.toFixed(1)} °C`
+      case 'tire pressure':
+        return `${value.toFixed(1)} kPa`
+      case 'fuel':
+        return `${value.toFixed(2)} L`
+      case 'ers / battery':
+        return `${value.toFixed(1)}%`
       case 'rpm':
         return `${Math.round(value)} RPM`
       case 'gear':
