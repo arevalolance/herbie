@@ -2,7 +2,24 @@
 
 import React, { useMemo, useState, useCallback, useTransition, useEffect } from "react";
 import { Prisma } from "@/generated/prisma";
-import { Activity, Link2, Pin, PinOff, Save, Share2, Sparkles } from "lucide-react";
+import {
+        Activity,
+        CheckCircle2,
+        Fuel,
+        Gauge,
+        Link2,
+        Map,
+        NotebookPen,
+        PanelRight,
+        Pin,
+        PinOff,
+        Save,
+        Share2,
+        Sparkles,
+        UploadCloud,
+        Video,
+        Wrench,
+} from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Badge } from "@workspace/ui/components/badge";
@@ -130,6 +147,9 @@ export function TelemetryView({
         lapTimeline: LapTimelineEntry[];
         deepLinkSource?: string;
 }) {
+        const searchParams = useSearchParams();
+        const router = useRouter();
+        const pathname = usePathname();
         const [activeSectors, setActiveSectors] = useState<number[]>([0, 1, 2]);
         const [showDeltaHotspots, setShowDeltaHotspots] = useState(false);
         const [comparisonTitle, setComparisonTitle] = useState(`Lap ${lap.lap_number} comparison`);
@@ -137,10 +157,11 @@ export function TelemetryView({
         const [lastComparisonId, setLastComparisonId] = useState<number | null>(null);
         const [saveError, setSaveError] = useState<string | null>(null);
         const [isSavingComparison, startSavingComparison] = useTransition();
+        const [activeVisualizationTab, setActiveVisualizationTab] = useState(() => {
+                const initial = searchParams?.get("view");
+                return typeof initial === "string" && initial.length ? initial : "trace";
+        });
         const telemetryLogs = lap.telemetry_logs;
-        const searchParams = useSearchParams();
-        const router = useRouter();
-        const pathname = usePathname();
         const trackSlug = useMemo(
                 () =>
                         (lap.sessions?.track_name ?? "unknown-track")
@@ -175,6 +196,47 @@ export function TelemetryView({
         const [pinnedCharts, setPinnedCharts] = useState<string[]>(initialPinnedFromQuery);
         const [activePreset, setActivePreset] = useState<string>(initialPresetFromQuery ?? "core");
         const [savedSectorPreset, setSavedSectorPreset] = useState<number[] | null>(null);
+        const [stepperHighlight, setStepperHighlight] = useState<string | null>(null);
+
+        const latestNote = useMemo(() => sessionNotes[0] ?? null, [sessionNotes]);
+
+        const lapSuggestions = useMemo(() => {
+                const valid = [...lapTimeline]
+                        .filter((entry) => typeof entry.lapTime === "number")
+                        .sort((a, b) => (a.lapTime ?? 0) - (b.lapTime ?? 0));
+
+                if (!valid.length) return { best: null, median: null, outlier: null } as const;
+
+                const best = valid[0];
+                const median = valid[Math.floor(valid.length / 2)];
+                const outlier = valid[valid.length - 1];
+
+                return { best, median, outlier } as const;
+        }, [lapTimeline]);
+
+        const visualizationTabs = useMemo(
+                () => [
+                        { id: "trace", label: "Trace", icon: Map, description: "Track overlay & deltas" },
+                        { id: "sectors", label: "Sectors", icon: Activity, description: "Splits & checkpoints" },
+                        { id: "video", label: "Video sync", icon: Video, description: "Align lap footage" },
+                        { id: "mechanical", label: "Mechanical", icon: Wrench, description: "Ride height & chassis" },
+                        { id: "tires", label: "Tires", icon: Gauge, description: "Pressures & temps" },
+                        { id: "energy", label: "Fuel/Energy", icon: Fuel, description: "Consumption & ERS" },
+                ],
+                []
+        );
+
+        const tabChartFilters = useMemo<Record<string, string[]>>(
+                () => ({
+                        trace: ["speed", "throttle", "brake", "steering"],
+                        sectors: ["speed"],
+                        video: [],
+                        mechanical: ["ride-height"],
+                        tires: ["tire-temp", "tire-pressure"],
+                        energy: ["fuel", "ers"],
+                }),
+                []
+        );
 
         const toggleSector = useCallback((sector: number) => {
                 setActiveSectors((prev) =>
@@ -355,8 +417,10 @@ export function TelemetryView({
                 const sectorsValue = activeSectors.join(",");
 
                 const currentPreset = params.get("preset");
+                const currentView = params.get("view");
 
                 if (currentPreset !== activePreset) params.set("preset", activePreset);
+                if (currentView !== activeVisualizationTab) params.set("view", activeVisualizationTab);
                 if (pinsValue) params.set("pins", pinsValue);
                 else params.delete("pins");
 
@@ -367,7 +431,7 @@ export function TelemetryView({
                 if (searchParams?.toString() !== nextQuery) {
                         router.replace(`${pathname}?${nextQuery}`, { scroll: false });
                 }
-        }, [activePreset, activeSectors, hasHydrated, pathname, pinnedCharts, router, searchParams]);
+        }, [activePreset, activeSectors, activeVisualizationTab, hasHydrated, pathname, pinnedCharts, router, searchParams]);
 
         const togglePinnedChart = useCallback((chartId?: string) => {
                 if (!chartId) return;
@@ -500,14 +564,442 @@ export function TelemetryView({
                 });
         }, [comparisonNotes, comparisonTitle, lap.id, startSavingComparison]);
 
+        const chartsForActiveTab = useMemo(() => {
+                const allowed = tabChartFilters[activeVisualizationTab] ?? [];
+
+                if (!allowed.length) return chartsToRender;
+
+                return chartsToRender.filter((chart) => {
+                        const id = chart.id ?? "";
+                        return allowed.includes(id) || pinnedCharts.includes(id);
+                });
+        }, [activeVisualizationTab, chartsToRender, pinnedCharts, tabChartFilters]);
+
+        const visualizationSummary = visualizationTabs.find((tab) => tab.id === activeVisualizationTab);
+
+        const handleTabChange = useCallback((next: string) => {
+                setActiveVisualizationTab(next);
+                setStepperHighlight("visualizations");
+        }, []);
+
+        const stepClass = useCallback(
+                (id: string) =>
+                        `rounded-lg border p-4 space-y-3 h-full ${
+                                stepperHighlight === id ? "border-primary shadow-sm" : "border-border"
+                        }`,
+                [stepperHighlight]
+        );
+
+        const trackMapCard = (
+                <Card className="lg:col-span-2">
+                        <CardHeader className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                                <div className="space-y-1">
+                                        <CardTitle className="text-xl">Track map & sectors</CardTitle>
+                                        <p className="text-sm text-muted-foreground">
+                                                {lap.sessions?.track_name ?? "Session"} · {lap.sessions?.sim_name ?? "Unknown sim"}
+                                        </p>
+                                </div>
+                                <div className="flex gap-2">
+                                        <Button
+                                                variant={showDeltaHotspots ? "default" : "secondary"}
+                                                size="sm"
+                                                onClick={() => setShowDeltaHotspots((prev) => !prev)}
+                                                className="gap-2"
+                                        >
+                                                <Sparkles className="h-4 w-4" />
+                                                Highlight biggest deltas
+                                        </Button>
+                                </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                                <div className="h-[420px] w-full rounded-lg border bg-background/50">
+                                        <TrackMap
+                                                laps={mapLines}
+                                                className="h-full w-full"
+                                                strokeWidth={1.5}
+                                                showHoverMarker
+                                                hoverRadius={36}
+                                        />
+                                </div>
+
+                                <SectorFilterBar
+                                        sectorTimes={sectorTimes}
+                                        lapTime={lapTime}
+                                        activeSectors={activeSectors}
+                                        toggleSector={(sector) => {
+                                                setStepperHighlight("laps");
+                                                toggleSector(sector);
+                                        }}
+                                />
+                                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                                <Badge variant="outline">{lap.sessions?.track_name ?? "Track"}</Badge>
+                                                <span>Sector preset saved locally</span>
+                                                {savedSectorPreset && savedSectorPreset.length > 0 && (
+                                                        <span className="text-[11px]">
+                                                                Saved: {savedSectorPreset.map((s) => `S${s + 1}`).join(", ")}
+                                                        </span>
+                                                )}
+                                        </div>
+                                        <div className="flex gap-2">
+                                                <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                                setStepperHighlight("laps");
+                                                                applySavedSectors();
+                                                        }}
+                                                        disabled={!savedSectorPreset?.length}
+                                                >
+                                                        Load track preset
+                                                </Button>
+                                                <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                                setStepperHighlight("laps");
+                                                                resetSectors();
+                                                        }}
+                                                >
+                                                        Reset to all
+                                                </Button>
+                                                <Button
+                                                        variant="secondary"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                                setStepperHighlight("laps");
+                                                                saveSectorPreset();
+                                                        }}
+                                                >
+                                                        Save sectors
+                                                </Button>
+                                        </div>
+                                </div>
+                        </CardContent>
+                </Card>
+        );
+
+        const splitTablesCard = (
+                <Card>
+                        <CardHeader>
+                                <CardTitle className="text-base flex items-center gap-2">
+                                        <Activity className="h-4 w-4" /> Split tables
+                                </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                                <div className="rounded-lg border">
+                                        <div className="grid grid-cols-4 gap-2 px-3 py-2 text-xs font-semibold text-muted-foreground">
+                                                <span>Sector</span>
+                                                <span className="text-right">Time</span>
+                                                <span className="text-right">Lap %</span>
+                                                <span className="text-right">Δ vs best</span>
+                                        </div>
+                                        {sectorBreakdown.map((sector) => (
+                                                <div key={sector.name} className="grid grid-cols-4 gap-2 px-3 py-2 text-sm border-t">
+                                                        <span>{sector.name}</span>
+                                                        <span className="text-right font-mono">{formatSeconds(sector.time)}</span>
+                                                        <span className="text-right text-muted-foreground">
+                                                                {sector.share != null ? `${sector.share.toFixed(1)}%` : "—"}
+                                                        </span>
+                                                        <span className="text-right text-muted-foreground">
+                                                                {sector.delta != null ? `+${sector.delta.toFixed(3)}s` : "—"}
+                                                        </span>
+                                                </div>
+                                        ))}
+                                </div>
+
+                                <div className="rounded-lg border">
+                                        <div className="grid grid-cols-3 gap-2 px-3 py-2 text-xs font-semibold text-muted-foreground">
+                                                <span>Checkpoint</span>
+                                                <span className="text-right">Speed</span>
+                                                <span className="text-right">Delta</span>
+                                        </div>
+                                        {checkpointSplits.map((split) => (
+                                                <div key={split.label} className="grid grid-cols-3 gap-2 px-3 py-2 text-sm border-t">
+                                                        <span>{split.label}</span>
+                                                        <span className="text-right text-muted-foreground">{split.speed ? `${split.speed.toFixed(1)} km/h` : "—"}</span>
+                                                        <span className="text-right font-mono">
+                                                                {split.delta != null ? `${split.delta >= 0 ? "+" : ""}${split.delta.toFixed(3)}s` : "—"}
+                                                        </span>
+                                                </div>
+                                        ))}
+                                </div>
+                        </CardContent>
+                </Card>
+        );
+
+        const telemetryChartsCard = (
+                <Card>
+                        <CardHeader>
+                                <CardTitle className="text-base">Telemetry traces</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                                        <div className="space-y-1">
+                                                <p className="text-sm font-medium">Preset charts</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                        Charts tuned for the {visualizationSummary?.label ?? "Trace"} view. Pinned charts always stay
+                                                        visible.
+                                                </p>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                                <Select value={activePreset} onValueChange={setActivePreset}>
+                                                        <SelectTrigger className="w-[200px]">
+                                                                <SelectValue placeholder="Choose charts" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                                {chartPresets.map((preset) => (
+                                                                        <SelectItem key={preset.id} value={preset.id}>
+                                                                                {preset.label}
+                                                                        </SelectItem>
+                                                                ))}
+                                                        </SelectContent>
+                                                </Select>
+                                                <Button variant="secondary" size="sm" className="gap-2" onClick={copyDeepLink}>
+                                                        <Share2 className="h-4 w-4" />
+                                                        Copy deep link
+                                                </Button>
+                                        </div>
+                                </div>
+
+                                {pinnedCharts.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                                                <Badge variant="outline">Pinned</Badge>
+                                                {pinnedCharts.map((pin) => (
+                                                        <Badge key={pin} variant="secondary">
+                                                                {pin}
+                                                        </Badge>
+                                                ))}
+                                        </div>
+                                )}
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {chartsForActiveTab.length === 0 && (
+                                                <div className="col-span-2 text-sm text-muted-foreground">
+                                                        No telemetry charts are available for this lap.
+                                                </div>
+                                        )}
+                                        {chartsForActiveTab.map((chart) => (
+                                                <div
+                                                        key={chart.id ?? chart.title}
+                                                        className="rounded-lg border bg-muted/30 p-2 space-y-2"
+                                                >
+                                                        <div className="flex items-center justify-between gap-2">
+                                                                <p className="text-sm font-semibold leading-none">{chart.title}</p>
+                                                                <Button
+                                                                        variant={pinnedCharts.includes(chart.id ?? "") ? "default" : "ghost"}
+                                                                        size="icon"
+                                                                        onClick={() => togglePinnedChart(chart.id)}
+                                                                        aria-pressed={pinnedCharts.includes(chart.id ?? "")}
+                                                                        className="h-8 w-8"
+                                                                >
+                                                                        {pinnedCharts.includes(chart.id ?? "") ? (
+                                                                                <Pin className="h-4 w-4" />
+                                                                        ) : (
+                                                                                <PinOff className="h-4 w-4" />
+                                                                        )}
+                                                                </Button>
+                                                        </div>
+                                                        <div className="h-36 md:h-44">
+                                                                <ZoomableChart data={chart.data} title={chart.title} syncId="lapAnalysis" />
+                                                        </div>
+                                                </div>
+                                        ))}
+                                </div>
+                        </CardContent>
+                </Card>
+        );
+
+        const videoSyncCard = (
+                <Card>
+                        <CardHeader>
+                                <CardTitle className="text-base flex items-center gap-2">
+                                        <Video className="h-4 w-4" /> Video sync
+                                </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3 text-sm text-muted-foreground">
+                                <p>
+                                        Drop timestamps or offsets from your video review tool to align telemetry with footage. Use the
+                                        deep link to reopen this lap directly from your favorite workspace page.
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                        <Badge variant="secondary">Delta markers {showDeltaHotspots ? "on" : "off"}</Badge>
+                                        <Badge variant="outline">View: {visualizationSummary?.label ?? "Trace"}</Badge>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                        <Button variant="secondary" size="sm" onClick={copyDeepLink} className="gap-2">
+                                                <Link2 className="h-4 w-4" /> Copy deep link
+                                        </Button>
+                                        <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => setShowDeltaHotspots((prev) => !prev)}
+                                                className="gap-2"
+                                        >
+                                                <Sparkles className="h-4 w-4" /> Toggle delta hotspots
+                                        </Button>
+                                </div>
+                        </CardContent>
+                </Card>
+        );
+
         return (
                 <div className="flex flex-col gap-6">
-                        <SessionNotebook
-                                sessionId={lap.session_id}
-                                lapId={lap.id}
-                                initialNotes={sessionNotes}
-                                lapTimeline={lapTimeline}
-                        />
+                        <Card>
+                                <CardHeader>
+                                        <CardTitle className="text-lg flex items-center gap-2">
+                                                <UploadCloud className="h-5 w-5" /> Guided review flow
+                                        </CardTitle>
+                                        <p className="text-sm text-muted-foreground">
+                                                Upload or select a session, pick representative laps, then jump into the visualization tabs with
+                                                deep links that work across the app.
+                                        </p>
+                                </CardHeader>
+                                <CardContent className="grid gap-3 md:grid-cols-3">
+                                        <div className={stepClass("session")}>
+                                                <div className="flex items-center gap-2">
+                                                        <UploadCloud className="h-4 w-4" />
+                                                        <p className="text-sm font-semibold">Upload or select session</p>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">
+                                                        Working on {lap.sessions?.track_name ?? "this track"} · {lap.sessions?.sim_name ?? "Sim"}
+                                                </p>
+                                                <Badge variant="secondary" className="w-fit gap-1">
+                                                        <CheckCircle2 className="h-3 w-3" /> Loaded
+                                                </Badge>
+                                        </div>
+                                        <div className={stepClass("laps")}>
+                                                <div className="flex items-center gap-2">
+                                                        <PanelRight className="h-4 w-4" />
+                                                        <p className="text-sm font-semibold">Choose laps</p>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">Best, median, and outlier picks for this session.</p>
+                                                <div className="flex flex-wrap gap-2 text-xs">
+                                                        {lapSuggestions.best && (
+                                                                <Badge variant="outline">Best · Lap {lapSuggestions.best.lapNumber}</Badge>
+                                                        )}
+                                                        {lapSuggestions.median && (
+                                                                <Badge variant="outline">Median · Lap {lapSuggestions.median.lapNumber}</Badge>
+                                                        )}
+                                                        {lapSuggestions.outlier && (
+                                                                <Badge variant="outline">Outlier · Lap {lapSuggestions.outlier.lapNumber}</Badge>
+                                                        )}
+                                                </div>
+                                                <div className="text-[11px] text-muted-foreground">
+                                                        {lapSuggestions.best
+                                                                ? `Best ${formatSeconds(lapSuggestions.best.lapTime)} · Median ${formatSeconds(lapSuggestions.median?.lapTime)} · Outlier ${formatSeconds(lapSuggestions.outlier?.lapTime)}`
+                                                                : "Lap timing suggestions appear here when lap times are available."}
+                                                </div>
+                                        </div>
+                                        <div className={stepClass("visualizations")}>
+                                                <div className="flex items-center gap-2">
+                                                        <Map className="h-4 w-4" />
+                                                        <p className="text-sm font-semibold">Visualization tabs</p>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">Trace, sectors, video sync, mechanical, tires, and fuel.</p>
+                                                <div className="flex flex-wrap gap-2">
+                                                        {visualizationTabs.map((tab) => (
+                                                                <Button
+                                                                        key={tab.id}
+                                                                        size="sm"
+                                                                        variant={activeVisualizationTab === tab.id ? "default" : "outline"}
+                                                                        onClick={() => handleTabChange(tab.id)}
+                                                                        className="h-8 gap-1"
+                                                                >
+                                                                        <tab.icon className="h-3 w-3" />
+                                                                        {tab.label}
+                                                                </Button>
+                                                        ))}
+                                                </div>
+                                                <p className="text-[11px] text-muted-foreground">
+                                                        Deep links carry your selected tab ({visualizationSummary?.label ?? "Trace"}) and chart preset.
+                                                </p>
+                                        </div>
+                                </CardContent>
+                        </Card>
+
+                        <Card>
+                                <CardHeader>
+                                        <CardTitle className="text-base flex items-center gap-2">
+                                                <PanelRight className="h-4 w-4" /> Inline comparison & setup notes
+                                        </CardTitle>
+                                </CardHeader>
+                                <CardContent className="grid gap-4 md:grid-cols-2">
+                                        <form className="space-y-3" onSubmit={onSaveComparison}>
+                                                <div className="space-y-1">
+                                                        <Label htmlFor="comparisonTitle">Save as comparison</Label>
+                                                        <Input
+                                                                id="comparisonTitle"
+                                                                value={comparisonTitle}
+                                                                onChange={(e) => setComparisonTitle(e.target.value)}
+                                                                placeholder="Name this comparison"
+                                                                required
+                                                        />
+                                                </div>
+                                                <div className="space-y-1">
+                                                        <Label htmlFor="comparisonNotes">Notes (optional)</Label>
+                                                        <textarea
+                                                                id="comparisonNotes"
+                                                                value={comparisonNotes}
+                                                                onChange={(e) => setComparisonNotes(e.target.value)}
+                                                                className="flex h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                                                placeholder="What should this be compared against?"
+                                                        />
+                                                </div>
+                                                <div className="flex items-center justify-between gap-2">
+                                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                                <Badge variant={showDeltaHotspots ? "default" : "outline"}>
+                                                                        {showDeltaHotspots ? "Delta markers on" : "Delta markers off"}
+                                                                </Badge>
+                                                                {lastComparisonId && <Badge variant="secondary">Saved as #{lastComparisonId}</Badge>}
+                                                                {saveError && <span className="text-destructive">{saveError}</span>}
+                                                        </div>
+                                                        <Button type="submit" disabled={isSavingComparison} className="gap-2">
+                                                                <Save className="h-4 w-4" />
+                                                                {isSavingComparison ? "Saving..." : "Save comparison"}
+                                                        </Button>
+                                                </div>
+                                        </form>
+                                        <div className="space-y-3 text-sm text-muted-foreground">
+                                                <div className="rounded-lg border p-3">
+                                                        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                                                                <NotebookPen className="h-4 w-4" /> Setup notes
+                                                        </div>
+                                                        {latestNote ? (
+                                                                <p className="mt-2 text-sm text-foreground">{latestNote.note || "Setup change captured."}</p>
+                                                        ) : (
+                                                                <p className="mt-2">No setup notes yet. Capture tire pressures, aero, and more.</p>
+                                                        )}
+                                                        <div className="mt-3 flex flex-wrap gap-2">
+                                                                <Button size="sm" variant="secondary" asChild>
+                                                                        <a href="#setup-notes">Add setup note</a>
+                                                                </Button>
+                                                                <Button
+                                                                        size="sm"
+                                                                        variant="ghost"
+                                                                        onClick={() => {
+                                                                                setStepperHighlight("session");
+                                                                                copyDeepLink();
+                                                                        }}
+                                                                        className="gap-2"
+                                                                >
+                                                                        <Link2 className="h-4 w-4" /> Share this view
+                                                                </Button>
+                                                        </div>
+                                                </div>
+                                                <p>Notes and comparisons stay with this lap and are reachable from other pages via deep links.</p>
+                                        </div>
+                                </CardContent>
+                        </Card>
+
+                        <div id="setup-notes">
+                                <SessionNotebook
+                                        sessionId={lap.session_id}
+                                        lapId={lap.id}
+                                        initialNotes={sessionNotes}
+                                        lapTimeline={lapTimeline}
+                                />
+                        </div>
 
                         {deepLinkSource && (
                                 <Card>
@@ -521,258 +1013,35 @@ export function TelemetryView({
                                 </Card>
                         )}
 
-                        <div className="grid gap-6 lg:grid-cols-3 items-start">
-                                <Card className="lg:col-span-2">
-                                        <CardHeader className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-                                                <div className="space-y-1">
-                                                        <CardTitle className="text-xl">Track map & sectors</CardTitle>
-                                                        <p className="text-sm text-muted-foreground">
-                                                                {lap.sessions?.track_name ?? "Session"} · {lap.sessions?.sim_name ?? "Unknown sim"}
-                                                        </p>
+                        <div className="space-y-6">
+                                {activeVisualizationTab === "trace" && (
+                                        <>
+                                                <div className="grid gap-6 lg:grid-cols-3 items-start">
+                                                        {trackMapCard}
+                                                        {splitTablesCard}
                                                 </div>
-                                                <div className="flex gap-2">
-                                                        <Button
-                                                                variant={showDeltaHotspots ? "default" : "secondary"}
-                                                                size="sm"
-                                                                onClick={() => setShowDeltaHotspots((prev) => !prev)}
-                                                                className="gap-2"
-                                                        >
-                                                                <Sparkles className="h-4 w-4" />
-                                                                Highlight biggest deltas
-                                                        </Button>
-                                                </div>
-                                        </CardHeader>
-                                        <CardContent className="space-y-4">
-                                                <div className="h-[420px] w-full rounded-lg border bg-background/50">
-                                                        <TrackMap
-                                                                laps={mapLines}
-                                                                className="h-full w-full"
-                                                                strokeWidth={1.5}
-                                                                showHoverMarker
-                                                                hoverRadius={36}
-                                                        />
-                                                </div>
+                                                {telemetryChartsCard}
+                                        </>
+                                )}
 
-                                                <SectorFilterBar
-                                                        sectorTimes={sectorTimes}
-                                                        lapTime={lapTime}
-                                                        activeSectors={activeSectors}
-                                                        toggleSector={toggleSector}
-                                                />
-                                                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-                                                        <div className="flex flex-wrap items-center gap-2">
-                                                                <Badge variant="outline">{lap.sessions?.track_name ?? "Track"}</Badge>
-                                                                <span>Sector preset saved locally</span>
-                                                                {savedSectorPreset && savedSectorPreset.length > 0 && (
-                                                                        <span className="text-[11px]">
-                                                                                Saved: {savedSectorPreset.map((s) => `S${s + 1}`).join(", ")}
-                                                                        </span>
-                                                                )}
-                                                        </div>
-                                                        <div className="flex gap-2">
-                                                                <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        onClick={applySavedSectors}
-                                                                        disabled={!savedSectorPreset?.length}
-                                                                >
-                                                                        Load track preset
-                                                                </Button>
-                                                                <Button variant="ghost" size="sm" onClick={resetSectors}>
-                                                                        Reset to all
-                                                                </Button>
-                                                                <Button variant="secondary" size="sm" onClick={saveSectorPreset}>
-                                                                        Save sectors
-                                                                </Button>
-                                                        </div>
-                                                </div>
-                                        </CardContent>
-                                </Card>
+                                {activeVisualizationTab === "sectors" && (
+                                        <div className="grid gap-6 lg:grid-cols-3 items-start">
+                                                {trackMapCard}
+                                                {splitTablesCard}
+                                        </div>
+                                )}
 
-                                <div className="space-y-4">
-                                        <Card>
-                                                <CardHeader>
-                                                        <CardTitle className="text-base flex items-center gap-2">
-                                                                <Activity className="h-4 w-4" /> Split tables
-                                                        </CardTitle>
-                                                </CardHeader>
-                                                <CardContent className="space-y-4">
-                                                        <div className="rounded-lg border">
-                                                                <div className="grid grid-cols-4 gap-2 px-3 py-2 text-xs font-semibold text-muted-foreground">
-                                                                        <span>Sector</span>
-                                                                        <span className="text-right">Time</span>
-                                                                        <span className="text-right">Lap %</span>
-                                                                        <span className="text-right">Δ vs best</span>
-                                                                </div>
-                                                                {sectorBreakdown.map((sector) => (
-                                                                        <div key={sector.name} className="grid grid-cols-4 gap-2 px-3 py-2 text-sm border-t">
-                                                                                <span>{sector.name}</span>
-                                                                                <span className="text-right font-mono">{formatSeconds(sector.time)}</span>
-                                                                                <span className="text-right text-muted-foreground">
-                                                                                        {sector.share != null ? `${sector.share.toFixed(1)}%` : "—"}
-                                                                                </span>
-                                                                                <span className="text-right text-muted-foreground">
-                                                                                        {sector.delta != null ? `+${sector.delta.toFixed(3)}s` : "—"}
-                                                                                </span>
-                                                                        </div>
-                                                                ))}
-                                                        </div>
+                                {activeVisualizationTab === "video" && (
+                                        <div className="grid gap-6 lg:grid-cols-3 items-start">
+                                                {trackMapCard}
+                                                {videoSyncCard}
+                                        </div>
+                                )}
 
-                                                        <div className="rounded-lg border">
-                                                                <div className="grid grid-cols-3 gap-2 px-3 py-2 text-xs font-semibold text-muted-foreground">
-                                                                        <span>Checkpoint</span>
-                                                                        <span className="text-right">Speed</span>
-                                                                        <span className="text-right">Delta</span>
-                                                                </div>
-                                                                {checkpointSplits.map((split) => (
-                                                                        <div key={split.label} className="grid grid-cols-3 gap-2 px-3 py-2 text-sm border-t">
-                                                                                <span>{split.label}</span>
-                                                                                <span className="text-right text-muted-foreground">{split.speed ? `${split.speed.toFixed(1)} km/h` : "—"}</span>
-                                                                                <span className="text-right font-mono">
-                                                                                        {split.delta != null ? `${split.delta >= 0 ? "+" : ""}${split.delta.toFixed(3)}s` : "—"}
-                                                                                </span>
-                                                                        </div>
-                                                                ))}
-                                                        </div>
-                                                </CardContent>
-                                        </Card>
-
-                                        <Card>
-                                                <CardHeader>
-                                                        <CardTitle className="text-base flex items-center gap-2">
-                                                                <Save className="h-4 w-4" /> Save as comparison
-                                                        </CardTitle>
-                                                </CardHeader>
-                                                <CardContent>
-                                                        <form className="space-y-3" onSubmit={onSaveComparison}>
-                                                                <div className="space-y-1">
-                                                                        <Label htmlFor="comparisonTitle">Title</Label>
-                                                                        <Input
-                                                                                id="comparisonTitle"
-                                                                                value={comparisonTitle}
-                                                                                onChange={(e) => setComparisonTitle(e.target.value)}
-                                                                                placeholder="Name this comparison"
-                                                                                required
-                                                                        />
-                                                                </div>
-                                                                <div className="space-y-1">
-                                                                        <Label htmlFor="comparisonNotes">Notes (optional)</Label>
-                                                                        <textarea
-                                                                                id="comparisonNotes"
-                                                                                value={comparisonNotes}
-                                                                                onChange={(e) => setComparisonNotes(e.target.value)}
-                                                                                className="flex h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                                                                placeholder="What should this be compared against?"
-                                                                        />
-                                                                </div>
-                                                                <div className="flex items-center justify-between gap-2">
-                                                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                                                <Badge variant={showDeltaHotspots ? "default" : "outline"}>
-                                                                                        {showDeltaHotspots ? "Delta markers on" : "Delta markers off"}
-                                                                                </Badge>
-                                                                                {lastComparisonId && (
-                                                                                        <Badge variant="secondary">Saved as #{lastComparisonId}</Badge>
-                                                                                )}
-                                                                                {saveError && (
-                                                                                        <span className="text-destructive">{saveError}</span>
-                                                                                )}
-                                                                        </div>
-                                                                        <Button type="submit" disabled={isSavingComparison} className="gap-2">
-                                                                                <Save className="h-4 w-4" />
-                                                                                {isSavingComparison ? "Saving..." : "Save comparison"}
-                                                                        </Button>
-                                                                </div>
-                                                        </form>
-                                                </CardContent>
-                                        </Card>
-                                </div>
+                                {activeVisualizationTab === "mechanical" && telemetryChartsCard}
+                                {activeVisualizationTab === "tires" && telemetryChartsCard}
+                                {activeVisualizationTab === "energy" && telemetryChartsCard}
                         </div>
-
-                        <Card>
-                                <CardHeader>
-                                        <CardTitle className="text-base">Telemetry traces</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                                                <div className="space-y-1">
-                                                        <p className="text-sm font-medium">Preset charts</p>
-                                                        <p className="text-xs text-muted-foreground">
-                                                                Speed, inputs, chassis, and energy charts are organized into presets per track.
-                                                                Pinned charts always stay visible.
-                                                        </p>
-                                                </div>
-                                                <div className="flex flex-wrap gap-2">
-                                                        <Select value={activePreset} onValueChange={setActivePreset}>
-                                                                <SelectTrigger className="w-[200px]">
-                                                                        <SelectValue placeholder="Choose charts" />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                        {chartPresets.map((preset) => (
-                                                                                <SelectItem key={preset.id} value={preset.id}>
-                                                                                        {preset.label}
-                                                                                </SelectItem>
-                                                                        ))}
-                                                                </SelectContent>
-                                                        </Select>
-                                                        <Button variant="secondary" size="sm" className="gap-2" onClick={copyDeepLink}>
-                                                                <Share2 className="h-4 w-4" />
-                                                                Copy deep link
-                                                        </Button>
-                                                </div>
-                                        </div>
-
-                                        {pinnedCharts.length > 0 && (
-                                                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                                                        <Badge variant="outline">Pinned</Badge>
-                                                        {pinnedCharts.map((pin) => (
-                                                                <Badge key={pin} variant="secondary">
-                                                                        {pin}
-                                                                </Badge>
-                                                        ))}
-                                                </div>
-                                        )}
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                {chartsToRender.length === 0 && (
-                                                        <div className="col-span-2 text-sm text-muted-foreground">
-                                                                No telemetry charts are available for this lap.
-                                                        </div>
-                                                )}
-                                                {chartsToRender.map((chart) => (
-                                                        <div
-                                                                key={chart.id ?? chart.title}
-                                                                className="rounded-lg border bg-muted/30 p-2 space-y-2"
-                                                        >
-                                                                <div className="flex items-center justify-between gap-2">
-                                                                        <p className="text-sm font-semibold leading-none">
-                                                                                {chart.title}
-                                                                        </p>
-                                                                        <Button
-                                                                                variant={pinnedCharts.includes(chart.id ?? "") ? "default" : "ghost"}
-                                                                                size="icon"
-                                                                                onClick={() => togglePinnedChart(chart.id)}
-                                                                                aria-pressed={pinnedCharts.includes(chart.id ?? "")}
-                                                                                className="h-8 w-8"
-                                                                        >
-                                                                                {pinnedCharts.includes(chart.id ?? "") ? (
-                                                                                        <Pin className="h-4 w-4" />
-                                                                                ) : (
-                                                                                        <PinOff className="h-4 w-4" />
-                                                                                )}
-                                                                        </Button>
-                                                                </div>
-                                                                <div className="h-36 md:h-44">
-                                                                        <ZoomableChart
-                                                                                data={chart.data}
-                                                                                title={chart.title}
-                                                                                syncId="lapAnalysis"
-                                                                        />
-                                                                </div>
-                                                        </div>
-                                                ))}
-                                        </div>
-                                </CardContent>
-                        </Card>
                 </div>
         );
 }
