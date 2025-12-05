@@ -211,23 +211,50 @@ export function detectAndStraightenSections(points: LapPoint[]): LapPoint[] {
 
 // Type definitions for telemetry data and chart data
 export interface TelemetryLog {
-	position_x?: number | null;
-	position_y?: number | null;
-	speed?: number | null;
-	throttle?: number | null;
-	brake?: number | null;
-	gear?: number | null;
-	rpm?: number | null;
-	steering?: number | null;
-	track_edge?: number | null;
-	lap_progress?: number | null;
-	velocity_longitudinal?: number | null;
-	velocity_lateral?: number | null;
-	velocity_vertical?: number | null;
-	timestamp?: string | Date | null;
-	delta_to_best_time?: number | null;
-	delta_to_session_best_time?: number | null;
-	reference_lap_id?: number | null;
+        position_x?: number | null;
+        position_y?: number | null;
+        speed?: number | null;
+        throttle?: number | null;
+        brake?: number | null;
+        gear?: number | null;
+        rpm?: number | null;
+        steering?: number | null;
+        track_edge?: number | null;
+        lap_progress?: number | null;
+        velocity_longitudinal?: number | null;
+        velocity_lateral?: number | null;
+        velocity_vertical?: number | null;
+        timestamp?: string | Date | null;
+        delta_to_best_time?: number | null;
+        delta_to_session_best_time?: number | null;
+        reference_lap_id?: number | null;
+        wheel_data?: Array<{
+                ride_height_fl?: number | null;
+                ride_height_fr?: number | null;
+                ride_height_rl?: number | null;
+                ride_height_rr?: number | null;
+        }>;
+        tyre_data?: Array<{
+                surface_temp_fl?: number | null;
+                surface_temp_fr?: number | null;
+                surface_temp_rl?: number | null;
+                surface_temp_rr?: number | null;
+                pressure_fl?: number | null;
+                pressure_fr?: number | null;
+                pressure_rl?: number | null;
+                pressure_rr?: number | null;
+        }>;
+        vehicle_state?: Array<{
+                fuel?: number | null;
+        }>;
+        electric_motor_data?: Array<{
+                battery_charge?: number | null;
+        }>;
+        input_data?: Array<{
+                throttle?: number | null;
+                brake?: number | null;
+                steering?: number | null;
+        }>;
 }
 
 export interface LapLine {
@@ -246,8 +273,9 @@ export interface ChartDataPoint {
 }
 
 export interface ChartData {
-	title: string;
-	data: ChartDataPoint[];
+        id: string;
+        title: string;
+        data: ChartDataPoint[];
 }
 
 /**
@@ -532,88 +560,171 @@ export function generateWorldRails(
  * @returns Array of chart data objects for different metrics
  */
 export function generateChartData(telemetryLogs: TelemetryLog[]): ChartData[] {
-	const charts: ChartData[] = [
-		{
-			title: "Speed",
-			data: telemetryLogs.map((log) => ({
-				date: (log.lap_progress ?? 0).toString(),
-				events: calculateSpeed(log.velocity_longitudinal, log.velocity_lateral, log.velocity_vertical),
-				delta_to_best: log.delta_to_best_time,
-				delta_to_session_best: log.delta_to_session_best_time,
-			})),
-		},
-		{
-			title: "Throttle",
-			data: telemetryLogs.map((log) => ({
-				date: (log.lap_progress ?? 0).toString(),
-				events: (log.throttle ?? 0) * 100,
-				delta_to_best: log.delta_to_best_time,
-				delta_to_session_best: log.delta_to_session_best_time,
-			})),
-		},
-		{
-			title: "Brake",
-			data: telemetryLogs.map((log) => ({
-				date: (log.lap_progress ?? 0).toString(),
-				events: (log.brake ?? 0) * 100,
-				delta_to_best: log.delta_to_best_time,
-				delta_to_session_best: log.delta_to_session_best_time,
-			})),
-		},
-		{
-			title: "Gear",
-			data: telemetryLogs.map((log) => ({
-				date: (log.lap_progress ?? 0).toString(),
-				events: log.gear ?? 0,
-				delta_to_best: log.delta_to_best_time,
-				delta_to_session_best: log.delta_to_session_best_time,
-			})),
-		},
-		{
-			title: "RPM",
-			data: telemetryLogs.map((log) => ({
-				date: (log.lap_progress ?? 0).toString(),
-				events: log.rpm ?? 0,
-				delta_to_best: log.delta_to_best_time,
-				delta_to_session_best: log.delta_to_session_best_time,
-			})),
-		},
-		{
-			title: "Steering",
-			data: telemetryLogs.map((log) => ({
-				date: (log.lap_progress ?? 0).toString(),
-				events: (log.steering ?? 0) * 100,
-				delta_to_best: log.delta_to_best_time,
-				delta_to_session_best: log.delta_to_session_best_time,
-			})),
-		},
-	];
+        const baseDelta = (log: TelemetryLog) => ({
+                delta_to_best: log.delta_to_best_time,
+                delta_to_session_best: log.delta_to_session_best_time,
+        });
 
-	// Add delta charts if delta data is available
-	const hasPersonalBestDelta = telemetryLogs.some(log => log.delta_to_best_time !== null && log.delta_to_best_time !== undefined);
-	const hasSessionBestDelta = telemetryLogs.some(log => log.delta_to_session_best_time !== null && log.delta_to_session_best_time !== undefined);
+        const average = (values: Array<number | null | undefined>) => {
+                const filtered = values.filter((v): v is number => v != null && !Number.isNaN(v));
+                if (!filtered.length) return null;
+                return filtered.reduce((sum, v) => sum + v, 0) / filtered.length;
+        };
 
-	if (hasPersonalBestDelta) {
-		charts.push({
-			title: "Delta to Personal Best",
-			data: telemetryLogs.map((log) => ({
-				date: (log.lap_progress ?? 0).toString(),
-				events: log.delta_to_best_time ?? 0,
-			})),
-		});
-	}
+        const builders: Array<{
+                id: string;
+                title: string;
+                compute: (log: TelemetryLog) => number | null;
+        }> = [
+                {
+                        id: "speed",
+                        title: "Speed",
+                        compute: (log) =>
+                                calculateSpeed(log.velocity_longitudinal, log.velocity_lateral, log.velocity_vertical),
+                },
+                {
+                        id: "throttle",
+                        title: "Throttle",
+                        compute: (log) => {
+                                const inputThrottle = log.input_data?.[0]?.throttle ?? log.throttle;
+                                return inputThrottle != null ? inputThrottle * 100 : null;
+                        },
+                },
+                {
+                        id: "brake",
+                        title: "Brake",
+                        compute: (log) => {
+                                const inputBrake = log.input_data?.[0]?.brake ?? log.brake;
+                                return inputBrake != null ? inputBrake * 100 : null;
+                        },
+                },
+                {
+                        id: "steering",
+                        title: "Steering",
+                        compute: (log) => {
+                                const steering = log.input_data?.[0]?.steering ?? log.steering;
+                                return steering != null ? steering * 100 : null;
+                        },
+                },
+                {
+                        id: "ride-height",
+                        title: "Ride height",
+                        compute: (log) => {
+                                const wheel = log.wheel_data?.[0];
+                                if (!wheel) return null;
+                                return average([
+                                        wheel.ride_height_fl,
+                                        wheel.ride_height_fr,
+                                        wheel.ride_height_rl,
+                                        wheel.ride_height_rr,
+                                ]);
+                        },
+                },
+                {
+                        id: "tire-temp",
+                        title: "Tire temperature",
+                        compute: (log) => {
+                                const tires = log.tyre_data?.[0];
+                                if (!tires) return null;
+                                return average([
+                                        tires.surface_temp_fl,
+                                        tires.surface_temp_fr,
+                                        tires.surface_temp_rl,
+                                        tires.surface_temp_rr,
+                                ]);
+                        },
+                },
+                {
+                        id: "tire-pressure",
+                        title: "Tire pressure",
+                        compute: (log) => {
+                                const tires = log.tyre_data?.[0];
+                                if (!tires) return null;
+                                return average([
+                                        tires.pressure_fl,
+                                        tires.pressure_fr,
+                                        tires.pressure_rl,
+                                        tires.pressure_rr,
+                                ]);
+                        },
+                },
+                {
+                        id: "fuel",
+                        title: "Fuel",
+                        compute: (log) => {
+                                const stateFuel = log.vehicle_state?.[0]?.fuel ?? log.fuel;
+                                return stateFuel != null ? stateFuel : null;
+                        },
+                },
+                {
+                        id: "ers",
+                        title: "ERS / Battery",
+                        compute: (log) => log.electric_motor_data?.[0]?.battery_charge ?? null,
+                },
+                {
+                        id: "gear",
+                        title: "Gear",
+                        compute: (log) => (log.gear != null ? log.gear : null),
+                },
+                {
+                        id: "rpm",
+                        title: "RPM",
+                        compute: (log) => log.rpm ?? null,
+                },
+        ];
 
-	if (hasSessionBestDelta) {
-		charts.push({
-			title: "Delta to Session Best",
-			data: telemetryLogs.map((log) => ({
-				date: (log.lap_progress ?? 0).toString(),
-				events: log.delta_to_session_best_time ?? 0,
-			})),
-		});
-	}
+        const charts: ChartData[] = builders
+                .map((builder) => {
+                        const data = telemetryLogs
+                                .map((log) => {
+                                        const computed = builder.compute(log);
+                                        if (computed == null || Number.isNaN(computed)) return null;
+                                        return {
+                                                date: (log.lap_progress ?? 0).toString(),
+                                                events: computed,
+                                                ...baseDelta(log),
+                                        };
+                                })
+                                .filter(Boolean) as ChartDataPoint[];
 
-	return charts;
+                        return { id: builder.id, title: builder.title, data } satisfies ChartData;
+                })
+                .filter((chart) => chart.data.length);
+
+        const hasPersonalBestDelta = telemetryLogs.some(
+                (log) => log.delta_to_best_time !== null && log.delta_to_best_time !== undefined
+        );
+        const hasSessionBestDelta = telemetryLogs.some(
+                (log) => log.delta_to_session_best_time !== null && log.delta_to_session_best_time !== undefined
+        );
+
+        if (hasPersonalBestDelta) {
+                charts.push({
+                        id: "delta-personal",
+                        title: "Delta to Personal Best",
+                        data: telemetryLogs
+                                .map((log) => ({
+                                        date: (log.lap_progress ?? 0).toString(),
+                                        events: log.delta_to_best_time ?? 0,
+                                }))
+                                .filter((entry) => entry.events != null),
+                });
+        }
+
+        if (hasSessionBestDelta) {
+                charts.push({
+                        id: "delta-session",
+                        title: "Delta to Session Best",
+                        data: telemetryLogs
+                                .map((log) => ({
+                                        date: (log.lap_progress ?? 0).toString(),
+                                        events: log.delta_to_session_best_time ?? 0,
+                                }))
+                                .filter((entry) => entry.events != null),
+                });
+        }
+
+        return charts;
 }
 
 /**

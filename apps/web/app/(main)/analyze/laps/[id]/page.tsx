@@ -27,6 +27,7 @@ export default async function AnalyzeLapsPage({
                                         input_data: true,
                                         tyre_data: true,
                                         brake_data: true,
+                                        electric_motor_data: true,
                                 }
                         },
                 }
