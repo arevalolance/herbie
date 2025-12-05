@@ -127,3 +127,4 @@ Essential environment variables:
 - **Adding UI components**: Add to `packages/ui/src/components/`, export from index, use in web app
 - **Database changes**: Update Prisma schema, run `prisma generate`, update seed script if needed
 - **Performance optimization**: Check indexes in schema, use `lap_summary` for aggregated data
+- Never use `any` type
