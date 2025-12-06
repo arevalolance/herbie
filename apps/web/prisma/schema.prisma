@@ -141,8 +141,8 @@ model laps {
 }
 
 model session_conditions {
-	id                  Int       @id @default(autoincrement())
-	session_id          Int?
+        id                  Int       @id @default(autoincrement())
+        session_id          Int?
 	timestamp           DateTime  @db.Timestamp(6)
 	track_temperature   Float?    @db.Real
 	ambient_temperature Float?    @db.Real
@@ -159,12 +159,32 @@ model session_conditions {
 	start_lights        Int?
 	sessions            sessions? @relation(fields: [session_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "session_conditions_session_id_sessions_id_fk")
 
-	@@index([session_id, timestamp], map: "session_conditions_idx")
+        @@index([session_id, timestamp], map: "session_conditions_idx")
+}
+
+model session_notes {
+        id              Int       @id @default(autoincrement())
+        session_id      Int
+        user_id         String    @db.VarChar(255)
+        note            String?
+        tags            String?   @db.VarChar(500)
+        springs         Json?
+        aero            Json?
+        brake_bias      Float?    @db.Real
+        tire_pressures  Json?
+        tire_temps      Json?
+        created_at      DateTime? @default(now()) @db.Timestamp(6)
+        updated_at      DateTime? @updatedAt @db.Timestamp(6)
+        sessions        sessions  @relation(fields: [session_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "session_notes_session_id_sessions_id_fk")
+        users           users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "session_notes_user_id_users_id_fk")
+
+        @@index([session_id], map: "session_notes_session_idx")
+        @@index([user_id], map: "session_notes_user_idx")
 }
 
 model sessions {
-	id                 Int                  @id @default(autoincrement())
-	user_id            String               @db.VarChar(255)
+        id                 Int                  @id @default(autoincrement())
+        user_id            String               @db.VarChar(255)
 	session_stamp      BigInt
 	session_type       Int
 	track_name         String?              @db.VarChar(255)
@@ -177,11 +197,12 @@ model sessions {
 	is_lap_type        Boolean?
 	title              String?              @db.VarChar(255)
 	description        String?
-	created_at         DateTime?            @default(now()) @db.Timestamp(6)
-	laps               laps[]
-	session_conditions session_conditions[]
-	users              users                @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sessions_user_id_users_id_fk")
-	vehicles           vehicles[]
+        created_at         DateTime?            @default(now()) @db.Timestamp(6)
+        session_notes      session_notes[]
+        laps               laps[]
+        session_conditions session_conditions[]
+        users              users                @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sessions_user_id_users_id_fk")
+        vehicles           vehicles[]
 
 	@@index([user_id, session_stamp], map: "user_session_idx")
 }
@@ -324,19 +345,20 @@ model tyre_temperature_detail {
 }
 
 model users {
-	id                  String            @id @db.VarChar(255)
-	workos_user_id      String            @unique(map: "users_workos_user_id_unique") @db.VarChar(255)
+        id                  String            @id @db.VarChar(255)
+        workos_user_id      String            @unique(map: "users_workos_user_id_unique") @db.VarChar(255)
 	organization_id     String?           @db.VarChar(255)
 	email               String            @db.VarChar(255)
 	name                String?           @db.VarChar(255)
 	first_name          String?           @db.VarChar(255)
 	last_name           String?           @db.VarChar(255)
 	profile_picture_url String?           @db.VarChar(500)
-	created_at          DateTime?         @default(now()) @db.Timestamp(6)
-	updated_at          DateTime?         @default(now()) @db.Timestamp(6)
-	lap_comparisons     lap_comparisons[]
-	laps                laps[]
-	sessions            sessions[]
+        created_at          DateTime?         @default(now()) @db.Timestamp(6)
+        updated_at          DateTime?         @default(now()) @db.Timestamp(6)
+        lap_comparisons     lap_comparisons[]
+        laps                laps[]
+        sessions            sessions[]
+        session_notes       session_notes[]
 
 	@@index([organization_id], map: "organization_idx")
 	@@index([workos_user_id], map: "workos_user_idx")
