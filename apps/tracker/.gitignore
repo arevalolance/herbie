@@ -359,8 +359,8 @@ env/
 ENV/
 
 # Telemetry data
-tracker/telemetry_logs/
-*.csv
+# tracker/telemetry_logs/
+# *.csv
 
 # Settings and config
 config.json

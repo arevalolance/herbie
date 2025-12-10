@@ -817,6 +817,51 @@ class Vehicle(DataAdapter):
         """Lateral position with respect to the very approximate centre path (meters)"""
         return rmnan(self.info.rf2ScorVeh(index).mPathLateral)
 
+    def clutch_rpm(self, index: int | None = None) -> float:
+        """Clutch RPM (rev per minute)"""
+        return rmnan(self.info.rf2TeleVeh(index).mClutchRPM)
+
+    def scheduled_stops(self, index: int | None = None) -> int:
+        """Number of scheduled pit stops"""
+        return self.info.rf2TeleVeh(index).mScheduledStops
+
+    def overheating(self, index: int | None = None) -> bool:
+        """Whether overheating icon is shown"""
+        return bool(self.info.rf2TeleVeh(index).mOverheating)
+
+    def anti_stall_activated(self, index: int | None = None) -> bool:
+        """Whether anti-stall is activated"""
+        return bool(self.info.rf2TeleVeh(index).mAntiStallActivated)
+
+    def physics_to_graphics_offset(self, index: int | None = None) -> tuple[float, float, float]:
+        """Offset from static CG to graphical center (x, y, z)"""
+        offset = self.info.rf2TeleVeh(index).mPhysicsToGraphicsOffset
+        return (rmnan(offset[0]), rmnan(offset[1]), rmnan(offset[2]))
+
+    def rotational_acceleration_lateral(self, index: int | None = None) -> float:
+        """Rotational acceleration lateral/roll (radians/sec^2)"""
+        return rmnan(self.info.rf2TeleVeh(index).mLocalRotAccel.x)
+
+    def rotational_acceleration_longitudinal(self, index: int | None = None) -> float:
+        """Rotational acceleration longitudinal/pitch (radians/sec^2)"""
+        return rmnan(self.info.rf2TeleVeh(index).mLocalRotAccel.z)
+
+    def rotational_acceleration_vertical(self, index: int | None = None) -> float:
+        """Rotational acceleration vertical/yaw (radians/sec^2)"""
+        return rmnan(self.info.rf2TeleVeh(index).mLocalRotAccel.y)
+
+    def rotation_lateral(self, index: int | None = None) -> float:
+        """Rotation lateral/roll (radians/sec)"""
+        return rmnan(self.info.rf2TeleVeh(index).mLocalRot.x)
+
+    def rotation_longitudinal(self, index: int | None = None) -> float:
+        """Rotation longitudinal/pitch (radians/sec)"""
+        return rmnan(self.info.rf2TeleVeh(index).mLocalRot.z)
+
+    def rotation_vertical(self, index: int | None = None) -> float:
+        """Rotation vertical/yaw (radians/sec)"""
+        return rmnan(self.info.rf2TeleVeh(index).mLocalRot.y)
+
 
 class Wheel(DataAdapter):
     """Wheel & suspension"""
@@ -972,3 +1017,83 @@ class Wheel(DataAdapter):
         """Whether all wheels are complete offroad"""
         wheel_data = self.info.rf2TeleVeh(index).mWheels
         return all(2 <= data.mSurfaceType <= 4 for data in wheel_data)
+
+    def lateral_force(self, index: int | None = None) -> tuple[float, ...]:
+        """Lateral force on tires (Newtons)"""
+        wheel_data = self.info.rf2TeleVeh(index).mWheels
+        return (
+            rmnan(wheel_data[0].mLateralForce),
+            rmnan(wheel_data[1].mLateralForce),
+            rmnan(wheel_data[2].mLateralForce),
+            rmnan(wheel_data[3].mLateralForce),
+        )
+
+    def longitudinal_force(self, index: int | None = None) -> tuple[float, ...]:
+        """Longitudinal force on tires (Newtons)"""
+        wheel_data = self.info.rf2TeleVeh(index).mWheels
+        return (
+            rmnan(wheel_data[0].mLongitudinalForce),
+            rmnan(wheel_data[1].mLongitudinalForce),
+            rmnan(wheel_data[2].mLongitudinalForce),
+            rmnan(wheel_data[3].mLongitudinalForce),
+        )
+
+    def grip_fraction(self, index: int | None = None) -> tuple[float, ...]:
+        """Grip fraction - approximation of contact patch sliding (0.0-1.0)"""
+        wheel_data = self.info.rf2TeleVeh(index).mWheels
+        return (
+            rmnan(wheel_data[0].mGripFract),
+            rmnan(wheel_data[1].mGripFract),
+            rmnan(wheel_data[2].mGripFract),
+            rmnan(wheel_data[3].mGripFract),
+        )
+
+    def is_flat(self, index: int | None = None) -> tuple[bool, ...]:
+        """Whether tire is flat"""
+        wheel_data = self.info.rf2TeleVeh(index).mWheels
+        return (
+            bool(wheel_data[0].mFlat),
+            bool(wheel_data[1].mFlat),
+            bool(wheel_data[2].mFlat),
+            bool(wheel_data[3].mFlat),
+        )
+
+    def static_radius(self, index: int | None = None) -> tuple[int, ...]:
+        """Static undeflected tire radius (centimeters)"""
+        wheel_data = self.info.rf2TeleVeh(index).mWheels
+        return (
+            wheel_data[0].mStaticUndeflectedRadius,
+            wheel_data[1].mStaticUndeflectedRadius,
+            wheel_data[2].mStaticUndeflectedRadius,
+            wheel_data[3].mStaticUndeflectedRadius,
+        )
+
+    def vertical_deflection(self, index: int | None = None) -> tuple[float, ...]:
+        """Vertical tire deflection from radius (meters)"""
+        wheel_data = self.info.rf2TeleVeh(index).mWheels
+        return (
+            rmnan(wheel_data[0].mVerticalTireDeflection),
+            rmnan(wheel_data[1].mVerticalTireDeflection),
+            rmnan(wheel_data[2].mVerticalTireDeflection),
+            rmnan(wheel_data[3].mVerticalTireDeflection),
+        )
+
+    def terrain_name(self, index: int | None = None) -> tuple[str, ...]:
+        """Terrain material name from TDF file"""
+        wheel_data = self.info.rf2TeleVeh(index).mWheels
+        return (
+            tostr(wheel_data[0].mTerrainName),
+            tostr(wheel_data[1].mTerrainName),
+            tostr(wheel_data[2].mTerrainName),
+            tostr(wheel_data[3].mTerrainName),
+        )
+
+    def surface_type(self, index: int | None = None) -> tuple[int, ...]:
+        """Surface type: 0=dry, 1=wet, 2=grass, 3=dirt, 4=gravel, 5=rumblestrip, 6=special"""
+        wheel_data = self.info.rf2TeleVeh(index).mWheels
+        return (
+            wheel_data[0].mSurfaceType,
+            wheel_data[1].mSurfaceType,
+            wheel_data[2].mSurfaceType,
+            wheel_data[3].mSurfaceType,
+        )
