@@ -6,7 +6,13 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "install": "pnpm install --frozen-lockfile && pnpm run setup:tracker",
+    "setup:tracker": "echo '⏭️  Skipping tracker setup on non-Windows platform' && echo '   Tracker is Windows-only and will be built separately'",
+    "dev:web": "turbo dev --filter=@herbie/web",
+    "dev:tracker": "turbo dev --filter=@herbie/tracker",
+    "build:tracker": "turbo build --filter=@herbie/tracker",
+    "check:tracker": "cd apps/tracker && (python3 -c \"import importlib.util; import sys; missing=[p for p in ['PyQt6','pystray','httpx','pydantic','structlog'] if importlib.util.find_spec(p) is None]; sys.exit(1) if missing and print(f'❌ Missing Python deps: {\", \".join(missing)}') else print('✅ Tracker dependencies OK')\" 2>/dev/null || python -c \"import importlib.util; import sys; missing=[p for p in ['PyQt6','pystray','httpx','pydantic','structlog'] if importlib.util.find_spec(p) is None]; sys.exit(1) if missing and print(f'❌ Missing Python deps: {\", \".join(missing)}') else print('✅ Tracker dependencies OK')\")"
   },
   "devDependencies": {
     "@workspace/eslint-config": "workspace:*",

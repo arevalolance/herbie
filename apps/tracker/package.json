@@ -1,0 +1,39 @@
+{
+  "name": "@herbie/tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Herbie Telemetry Agent - Windows telemetry collection for rFactor 2",
+  "type": "module",
+  "scripts": {
+    "dev": "echo '⏭️  Tracker dev mode skipped (Windows-only)' && echo '   Use Windows machine to run: python herbie_agent_launcher.py'",
+    "dev:windows": "python herbie_agent_launcher.py",
+    "dev:console": "python3 -m tracker.main 2>/dev/null || python -m tracker.main",
+    "build": "python3 build_windows.py 2>/dev/null || python build_windows.py",
+    "build:exe": "python3 build_windows.py 2>/dev/null || python build_windows.py",
+    "install": "python3 -m pip install -r requirements.txt 2>/dev/null || python -m pip install -r requirements.txt",
+    "install:deps": "python3 -m pip install -r requirements.txt 2>/dev/null || python -m pip install -r requirements.txt",
+    "lint": "(python3 -m black --check herbie_agent/ && python3 -m ruff check herbie_agent/) 2>/dev/null || (python -m black --check herbie_agent/ && python -m ruff check herbie_agent/)",
+    "lint:fix": "(python3 -m black herbie_agent/ && python3 -m ruff check --fix herbie_agent/) 2>/dev/null || (python -m black herbie_agent/ && python -m ruff check --fix herbie_agent/)",
+    "typecheck": "python3 -m mypy herbie_agent/ --ignore-missing-imports 2>/dev/null || python -m mypy herbie_agent/ --ignore-missing-imports",
+    "test": "python3 -m pytest tests/ -v 2>/dev/null || python -m pytest tests/ -v",
+    "clean": "python3 -c \"import shutil; import os; [shutil.rmtree(d, ignore_errors=True) for d in ['build', 'dist', '__pycache__', '.pytest_cache']]\" 2>/dev/null || python -c \"import shutil; import os; [shutil.rmtree(d, ignore_errors=True) for d in ['build', 'dist', '__pycache__', '.pytest_cache']]\"",
+    "setup": "(python3 -m pip install -r requirements.txt && python3 -c \"print('✅ Herbie Telemetry Agent dependencies installed successfully!')\") 2>/dev/null || (python -m pip install -r requirements.txt && python -c \"print('✅ Herbie Telemetry Agent dependencies installed successfully!')\")",
+    "check-deps": "python3 -c \"import importlib.util; import sys; missing=[p for p in ['PyQt6','pystray','httpx','pydantic','structlog'] if importlib.util.find_spec(p) is None]; sys.exit(1) if missing and print(f'❌ Missing: {\", \".join(missing)}') else print('✅ All dependencies available')\" 2>/dev/null || python -c \"import importlib.util; import sys; missing=[p for p in ['PyQt6','pystray','httpx','pydantic','structlog'] if importlib.util.find_spec(p) is None]; sys.exit(1) if missing and print(f'❌ Missing: {\", \".join(missing)}') else print('✅ All dependencies available')\""
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "cross-env": "^7.0.3"
+  },
+  "keywords": [
+    "telemetry",
+    "racing",
+    "rfactor2",
+    "herbie",
+    "windows",
+    "gui"
+  ],
+  "engines": {
+    "python": ">=3.9"
+  },
+  "preferGlobal": false
+}
