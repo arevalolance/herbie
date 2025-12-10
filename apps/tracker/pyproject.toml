@@ -1,27 +1,5 @@
 [project]
 name = "herbie-tracker"
-version = "0.1.0"
-description = "rFactor 2 telemetry tracker that captures racing data to CSV"
-requires-python = ">=3.13"
-dependencies = []
-
-# Note: Windows dependency pyRfactor2SharedMemory should be installed separately
-# On Windows: uv pip install ../../../pyRfactor2SharedMemory
-
-[project.scripts]
-tracker = "tracker.main:main"
-
-[tool.hatch.build.targets.wheel]
-packages = ["tracker"]
-
-[tool.uv]
-dev-dependencies = []
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-[project]
-name = "herbie-tracker"
 version = "1.0.0"
 description = "A professional Windows telemetry agent for collecting rFactor 2 telemetry data and sending it to the Herbie backend API"
 readme = "README.md"
@@ -62,6 +40,9 @@ dependencies = [
     # JSON handling
     "orjson>=3.9.0",
 ]
+
+# Note: Windows dependency pyRfactor2SharedMemory should be installed separately
+# On Windows: uv pip install ../../../pyRfactor2SharedMemory
 
 [project.optional-dependencies]
 dev = [
