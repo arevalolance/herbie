@@ -2,14 +2,20 @@ import time
 import logging
 import csv
 import os
-from typing import Dict, List
+import sys
+import ctypes
+from typing import Dict, List, Optional, Any
 
 from .api_connector import SimRF2
-from .adapter import rf2_data
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
+
+# Platform check
+if sys.platform != "win32":
+    logging.error("This tracker only works on Windows (requires rF2 shared memory)")
+    sys.exit(1)
 
 ACCESS_MODE = 0
 RF2_PROCESS_ID = ""
@@ -21,12 +27,172 @@ CHAR_ENCODING = "utf-8"
 LOG_DIR = os.path.join(os.path.dirname(__file__), "telemetry_logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 
-# Define data classes and their fields
-TELEMETRY_CLASSES = {
+
+def serialize_ctypes_struct(
+    obj: Any, prefix: str = "", max_depth: int = 5, current_depth: int = 0
+) -> Dict[str, Any]:
+    """
+    Recursively serialize ctypes Structure to flat dictionary.
+
+    Handles:
+    - Nested structures (recurse with prefix)
+    - Arrays (iterate with index)
+    - Byte arrays (decode to string)
+    - Primitives (direct value)
+
+    Args:
+        obj: ctypes object to serialize
+        prefix: Current field prefix for flattening
+        max_depth: Maximum recursion depth
+        current_depth: Current recursion level
+
+    Returns:
+        Flat dictionary with all fields
+    """
+    result = {}
+
+    if current_depth >= max_depth:
+        return result
+
+    # Handle ctypes.Structure
+    if isinstance(obj, ctypes.Structure):
+        for field_name, field_type in obj._fields_:
+            field_value = getattr(obj, field_name)
+            field_key = f"{prefix}{field_name}"
+
+            # Recursively serialize nested structures
+            if isinstance(field_value, ctypes.Structure):
+                nested = serialize_ctypes_struct(
+                    field_value, f"{field_key}_", max_depth, current_depth + 1
+                )
+                result.update(nested)
+
+            # Handle arrays
+            elif isinstance(field_value, ctypes.Array):
+                array_result = serialize_ctypes_array(
+                    field_value, field_key, max_depth, current_depth
+                )
+                result.update(array_result)
+
+            # Handle primitives
+            else:
+                try:
+                    result[field_key] = field_value
+                except (ValueError, TypeError):
+                    result[field_key] = None
+
+    # Handle ctypes.Array at top level
+    elif isinstance(obj, ctypes.Array):
+        array_result = serialize_ctypes_array(obj, prefix, max_depth, current_depth)
+        result.update(array_result)
+
+    return result
+
+
+def serialize_ctypes_array(
+    arr: ctypes.Array, prefix: str, max_depth: int, current_depth: int
+) -> Dict[str, Any]:
+    """
+    Serialize ctypes Array to flat dictionary with indexed keys.
+
+    Args:
+        arr: ctypes Array object
+        prefix: Field prefix
+        max_depth: Maximum recursion depth
+        current_depth: Current recursion level
+
+    Returns:
+        Flat dictionary with indexed array elements
+    """
+    result = {}
+
+    # Check if it's a byte array (char array)
+    if hasattr(arr, "_type_") and arr._type_ in (ctypes.c_ubyte, ctypes.c_char):
+        # Decode byte array to string
+        try:
+            byte_list = bytes(arr)
+            # Find null terminator
+            null_pos = byte_list.find(b"\x00")
+            if null_pos != -1:
+                byte_list = byte_list[:null_pos]
+            decoded = byte_list.decode("utf-8", errors="replace").strip()
+            result[prefix] = decoded
+        except Exception:
+            result[prefix] = ""
+    else:
+        # Iterate array elements
+        for idx, elem in enumerate(arr):
+            elem_key = f"{prefix}_{idx}"
+
+            # Recursively serialize structure elements
+            if isinstance(elem, ctypes.Structure):
+                nested = serialize_ctypes_struct(
+                    elem, f"{elem_key}_", max_depth, current_depth + 1
+                )
+                result.update(nested)
+            # Nested arrays
+            elif isinstance(elem, ctypes.Array):
+                nested_array = serialize_ctypes_array(
+                    elem, elem_key, max_depth, current_depth + 1
+                )
+                result.update(nested_array)
+            # Primitives
+            else:
+                try:
+                    result[elem_key] = elem
+                except (ValueError, TypeError):
+                    result[elem_key] = None
+
+    return result
+
+
+def capture_raw_telemetry(rf2_sim: SimRF2) -> Dict[str, Any]:
+    """
+    Capture ALL raw telemetry fields from rF2 shared memory.
+
+    Captures complete data from:
+    - rF2VehicleTelemetry (~180 fields including 4 wheels)
+    - rF2VehicleScoring (~60 fields)
+    - rF2ScoringInfo (~40 fields)
+
+    Total: 280+ fields per sample, completely raw, no restructuring.
+
+    Args:
+        rf2_sim: rF2 API connector
+
+    Returns:
+        Flat dictionary with all telemetry fields
+    """
+    data = {}
+
+    try:
+        # Telemetry data (~180 fields including 4x rF2Wheel)
+        tele_veh = rf2_sim.info.rf2TeleVeh()
+        data.update(serialize_ctypes_struct(tele_veh, "tele_"))
+
+        # Scoring data (~60 fields)
+        scor_veh = rf2_sim.info.rf2ScorVeh()
+        data.update(serialize_ctypes_struct(scor_veh, "scor_"))
+
+        # Session info (~40 fields)
+        scor_info = rf2_sim.info.rf2ScorInfo
+        data.update(serialize_ctypes_struct(scor_info, "session_"))
+
+        # Extended data (optional, ~50 fields)
+        # Uncomment if needed:
+        # ext = rf2_sim.info.rf2Ext
+        # data.update(serialize_ctypes_struct(ext, "ext_"))
+
+    except (AttributeError, TypeError, ValueError) as e:
+        logging.warning(f"Failed to capture some telemetry fields: {e}")
+
+    return data
+
+
+# Old selective field extraction (kept for reference, not used)
+_OLD_TELEMETRY_CLASSES = {
     "brake": {
         "fields": ["bias_front", "pressure", "temperature"],
-        "class": rf2_data.Brake,
-    },
     "engine": {
         "fields": [
             "gear",
@@ -218,24 +384,39 @@ TELEMETRY_CLASSES = {
 }
 
 
-def get_telemetry_data(
-    telemetry_class: rf2_data.DataAdapter, fields: List[str]
-) -> Dict:
-    """Get telemetry data for a specific class and its fields"""
-    data = {}
-    for field in fields:
-        try:
-            value = getattr(telemetry_class, field)()
-            # Handle tuple values by flattening them
-            if isinstance(value, tuple):
-                for i, v in enumerate(value):
-                    data[f"{field}_{i}"] = v
-            else:
-                data[field] = value
-        except Exception as e:
-            logging.warning(f"Failed to get {field}: {e}")
-            data[field] = None
-    return data
+def write_lap_csv(lap_number: int, data: List[Dict]) -> None:
+    """
+    Write complete raw telemetry data to single CSV file per lap.
+
+    Args:
+        lap_number: Lap number
+        data: List of dictionaries with all 280+ raw telemetry fields
+    """
+    if not data:
+        logging.warning(f"No data to write for lap {lap_number}")
+        return
+
+    csv_path = os.path.join(LOG_DIR, f"lap_{lap_number}_raw.csv")
+
+    try:
+        # Get all column names from first sample (should be consistent)
+        # Fallback to collecting all keys if samples vary
+        fieldnames = set()
+        for entry in data:
+            fieldnames.update(entry.keys())
+        fieldnames = sorted(list(fieldnames))
+
+        with open(csv_path, "w", newline="", encoding="utf-8") as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(data)
+
+        logging.info(
+            f"Saved complete raw telemetry for lap {lap_number} "
+            f"({len(data)} samples, {len(fieldnames)} fields) to {csv_path}"
+        )
+    except (IOError, OSError) as e:
+        logging.error(f"Failed to write CSV for lap {lap_number}: {e}")
 
 
 def run_logger():
@@ -253,71 +434,67 @@ def run_logger():
 
     print("Logger connected. Monitoring telemetry data... (Press Ctrl+C to exit)")
 
-    # Initialize data storage for each class
-    class_data: Dict[str, List[Dict]] = {
-        class_name: [] for class_name in TELEMETRY_CLASSES.keys()
-    }
-    prev_lap_number = None
+    # Initialize data storage - single list for all raw data
+    lap_data: List[Dict] = []
+    prev_lap_number: Optional[int] = None
+    prev_lap_snapshot: Optional[Dict] = None
     first_struct_dumped = False
 
     try:
         while True:
             if not rf2_sim.info.isPaused:
-                # Get current lap number and vehicle info
-                current_lap = rf2_sim.info.rf2TeleVeh().mLapNumber
+                # Atomic snapshot of current lap state (prevent race conditions)
                 vehicle_info = rf2_sim.info.rf2ScorVeh()
+                tele_veh = rf2_sim.info.rf2TeleVeh()
+
+                current_lap = tele_veh.mLapNumber
                 last_laptime = vehicle_info.mLastLapTime
                 in_pits = vehicle_info.mInPits
 
-                # Only record data if:
-                # 1. Not in pits
-                # 2. Previous lap was valid (positive time)
-                should_record = not in_pits and (
-                    last_laptime is None or last_laptime > 0
-                )
+                # Only record data if not in pits
+                should_record = not in_pits
 
                 if should_record:
-                    # Collect data for each class
-                    for class_name, class_info in TELEMETRY_CLASSES.items():
-                        telemetry_class = class_info["class"](rf2_sim.info)
-                        data = get_telemetry_data(telemetry_class, class_info["fields"])
-                        data["elapsed_time"] = rf2_sim.info.rf2TeleVeh().mElapsedTime
-                        data["lap_number"] = current_lap
-                        class_data[class_name].append(data)
+                    # Capture ALL raw telemetry fields (~280+ fields)
+                    raw_data = capture_raw_telemetry(rf2_sim)
+                    lap_data.append(raw_data)
 
-                # Detect lap change to write CSVs
+                # Detect lap change to write CSV
                 if prev_lap_number is not None and current_lap != prev_lap_number:
-                    # Check if the previous lap is valid
-                    if last_laptime and last_laptime > 0:
-                        # Write data for each class to its own CSV
-                        for class_name, data in class_data.items():
-                            if data:  # Only write if we have data
-                                csv_path = os.path.join(
-                                    LOG_DIR, f"lap_{prev_lap_number}_{class_name}.csv"
-                                )
-                                with open(
-                                    csv_path, "w", newline="", encoding="utf-8"
-                                ) as csvfile:
-                                    # Get all possible fields from the data
-                                    fieldnames = set()
-                                    for entry in data:
-                                        fieldnames.update(entry.keys())
-                                    fieldnames = sorted(list(fieldnames))
+                    # Validate PREVIOUS lap using snapshot taken BEFORE lap change
+                    if prev_lap_snapshot is not None:
+                        prev_laptime = prev_lap_snapshot["last_laptime"]
+                        prev_in_pits = prev_lap_snapshot["in_pits"]
 
-                                    writer = csv.DictWriter(
-                                        csvfile, fieldnames=fieldnames
-                                    )
-                                    writer.writeheader()
-                                    writer.writerows(data)
-                                print(
-                                    f"Saved {class_name} telemetry for lap {prev_lap_number} to {csv_path}"
-                                )
+                        # Lap is valid if: positive laptime AND not completed in pits
+                        is_valid_lap = (
+                            prev_laptime is not None
+                            and prev_laptime > 0
+                            and not prev_in_pits
+                        )
 
-                        # Clear the data after writing
-                        class_data = {
-                            class_name: [] for class_name in TELEMETRY_CLASSES.keys()
-                        }
+                        if is_valid_lap:
+                            logging.info(
+                                f"Valid lap detected: {prev_lap_number}, "
+                                f"time: {prev_laptime:.3f}s, "
+                                f"samples: {len(lap_data)}"
+                            )
+                            # Write complete raw telemetry to single CSV
+                            write_lap_csv(prev_lap_number, lap_data)
+                        else:
+                            logging.info(
+                                f"Invalid lap {prev_lap_number} discarded "
+                                f"(laptime: {prev_laptime}, in_pits: {prev_in_pits})"
+                            )
 
+                    # Clear the data after processing
+                    lap_data = []
+
+                # Store snapshot for next lap change validation
+                prev_lap_snapshot = {
+                    "last_laptime": last_laptime,
+                    "in_pits": in_pits,
+                }
                 prev_lap_number = current_lap
 
                 # Print minimal info
@@ -345,28 +522,20 @@ def run_logger():
         print("\nLogger stopped by user")
     finally:
         # Flush remaining lap data on exit
-        if prev_lap_number is not None:
-            last_lap_time = rf2_sim.info.rf2ScorVeh().mLastLapTime
-            if last_lap_time and last_lap_time > 0:
-                for class_name, data in class_data.items():
-                    if data:  # Only write if we have data
-                        csv_path = os.path.join(
-                            LOG_DIR, f"lap_{prev_lap_number}_{class_name}.csv"
-                        )
-                        with open(
-                            csv_path, "w", newline="", encoding="utf-8"
-                        ) as csvfile:
-                            fieldnames = set()
-                            for entry in data:
-                                fieldnames.update(entry.keys())
-                            fieldnames = sorted(list(fieldnames))
+        if prev_lap_number is not None and prev_lap_snapshot is not None:
+            prev_laptime = prev_lap_snapshot["last_laptime"]
+            prev_in_pits = prev_lap_snapshot["in_pits"]
 
-                            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-                            writer.writeheader()
-                            writer.writerows(data)
-                        print(
-                            f"Saved {class_name} telemetry for lap {prev_lap_number} to {csv_path}"
-                        )
+            is_valid_lap = (
+                prev_laptime is not None and prev_laptime > 0 and not prev_in_pits
+            )
+
+            if is_valid_lap and lap_data:
+                logging.info(
+                    f"Flushing final lap {prev_lap_number} "
+                    f"(time: {prev_laptime:.3f}s, samples: {len(lap_data)})"
+                )
+                write_lap_csv(prev_lap_number, lap_data)
 
         rf2_sim.stop()
 

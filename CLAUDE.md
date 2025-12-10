@@ -62,8 +62,23 @@ cd apps/web && pnpm seed:csv
 
 ### Python Tracker (`apps/tracker/`)
 ```bash
+# Setup environment and install dependencies
+cd apps/tracker && uv sync
+
 # Run the telemetry tracker
-cd apps/tracker && python -m tracker.main
+cd apps/tracker && uv run python -m tracker.main
+
+# Or using the CLI script
+cd apps/tracker && uv run tracker
+
+# Add a dependency
+cd apps/tracker && uv add <package>
+
+# Update dependencies
+cd apps/tracker && uv lock --upgrade
+
+# On Windows: Install rFactor 2 shared memory dependency
+cd apps/tracker && uv pip install ../../../pyRfactor2SharedMemory
 ```
 
 ## Architecture

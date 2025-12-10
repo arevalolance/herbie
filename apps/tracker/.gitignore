@@ -341,3 +341,7 @@ healthchecksdb
 /env
 *.pyo
 /pylint
+
+# uv
+.venv/
+uv.lock
