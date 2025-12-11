@@ -30,6 +30,9 @@ asyncio-mqtt>=0.13.0
 # JSON handling
 orjson>=3.9.0
 
+# Convex Python client for imports
+convex
+
 # Development dependencies
 black>=23.0.0
 pytest>=7.4.0

@@ -53,14 +53,17 @@ dev = [
 
 [project.scripts]
 herbie-tracker = "tracker.main:run_logger"
+herbie-tracker-snapshot = "tracker.snapshot_csv_logger:run_snapshot_logger"
 herbie-agent = "herbie_agent.telemetry_agent:main"
+import-telemetry = "scripts.import_telemetry:cli"
+snapshot-collector = "examples.snapshot_collector_example:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["tracker", "herbie_agent"]
+packages = ["tracker", "herbie_agent", "scripts", "examples"]
 
 [tool.black]
 line-length = 88
