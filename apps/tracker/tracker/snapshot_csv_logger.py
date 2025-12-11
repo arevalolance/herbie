@@ -16,7 +16,7 @@ import sys
 from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 
-from .api_connector import SimRF2
+from .api_connector import SimRF2, APIDataSet
 from .adapter import rf2_data
 
 logging.basicConfig(
@@ -50,6 +50,13 @@ class ScoringState:
 
 
 @dataclass
+class LapValidationSnapshot:
+    """Snapshot of lap state for validation after lap change"""
+    last_laptime: float = 0.0
+    in_pits: bool = False
+
+
+@dataclass
 class LapLogger:
     """Manages CSV logging for a single lap"""
     lap_number: int
@@ -68,6 +75,17 @@ class LapLogger:
             self.physics_fp.close()
         if self.scoring_fp:
             self.scoring_fp.close()
+
+    def delete_files(self):
+        """Delete CSV files (used for invalid laps)"""
+        self.close()
+        try:
+            if self.physics_file and os.path.exists(self.physics_file):
+                os.remove(self.physics_file)
+            if self.scoring_file and os.path.exists(self.scoring_file):
+                os.remove(self.scoring_file)
+        except OSError as e:
+            logging.error(f"Failed to delete CSV files for lap {self.lap_number}: {e}")
 
 
 # Physics sample CSV headers (high-frequency ~90Hz)
@@ -147,7 +165,7 @@ SCORING_HEADERS = [
 ]
 
 
-def collect_physics_sample(data: rf2_data.DataSet, elapsed_time: float, lap_number: int) -> Dict:
+def collect_physics_sample(data: APIDataSet, elapsed_time: float, lap_number: int) -> Dict:
     """Collect high-frequency physics sample (~90Hz from rF2Telemetry)"""
     return {
         "elapsed_time": elapsed_time,
@@ -306,7 +324,7 @@ def collect_physics_sample(data: rf2_data.DataSet, elapsed_time: float, lap_numb
 
 
 def collect_scoring_snapshot(
-    data: rf2_data.DataSet,
+    data: APIDataSet,
     elapsed_time: float,
     lap_number: int,
     trigger: str
@@ -393,6 +411,7 @@ def run_snapshot_logger():
     current_lap: Optional[LapLogger] = None
     last_lap_number = -1
     scoring_state = ScoringState()
+    validation_snapshot: Optional[LapValidationSnapshot] = None
 
     try:
         while True:
@@ -401,21 +420,43 @@ def run_snapshot_logger():
                 continue
 
             # Setup data adapter
-            data = rf2_data.DataSet()
-            data.setup(sim.info)
+            data = sim.dataset()
 
             lap_number = data.lap.number()
             elapsed_time = sim.info.rf2TeleVeh().mElapsedTime
 
+            # Capture current lap state for validation
+            current_laptime = data.timing.last_laptime()
+            current_in_pits = data.vehicle.in_pits()
+
             # Handle lap change
             if lap_number != last_lap_number:
                 if current_lap:
-                    logging.info(
-                        f"Lap {current_lap.lap_number} complete: "
-                        f"{current_lap.physics_count} physics samples, "
-                        f"{current_lap.scoring_count} scoring snapshots"
-                    )
-                    current_lap.close()
+                    # Validate the PREVIOUS lap using the snapshot taken BEFORE lap change
+                    if validation_snapshot is not None:
+                        is_valid_lap = (
+                            validation_snapshot.last_laptime > 0
+                            and not validation_snapshot.in_pits
+                        )
+
+                        if is_valid_lap:
+                            logging.info(
+                                f"Valid lap {current_lap.lap_number} complete: "
+                                f"time: {validation_snapshot.last_laptime:.3f}s, "
+                                f"{current_lap.physics_count} physics samples, "
+                                f"{current_lap.scoring_count} scoring snapshots"
+                            )
+                            current_lap.close()
+                        else:
+                            logging.info(
+                                f"Invalid lap {current_lap.lap_number} discarded "
+                                f"(laptime: {validation_snapshot.last_laptime:.3f}s, "
+                                f"in_pits: {validation_snapshot.in_pits})"
+                            )
+                            current_lap.delete_files()
+                    else:
+                        # No validation snapshot available, close without validation
+                        current_lap.close()
 
                 # Start new lap
                 current_lap = LapLogger(lap_number=lap_number)
@@ -478,17 +519,41 @@ def run_snapshot_logger():
                 scoring_state.last_position = current_position
                 scoring_state.last_snapshot_time = elapsed_time
 
+            # Update validation snapshot for next lap change
+            validation_snapshot = LapValidationSnapshot(
+                last_laptime=current_laptime,
+                in_pits=current_in_pits
+            )
+
             # Sleep based on physics tick rate (~90Hz = ~11ms)
             time.sleep(0.011)
 
     except KeyboardInterrupt:
         logging.info("\nShutting down...")
-        if current_lap:
-            logging.info(
-                f"Final lap {current_lap.lap_number}: "
-                f"{current_lap.physics_count} physics samples, "
-                f"{current_lap.scoring_count} scoring snapshots"
+        if current_lap and validation_snapshot:
+            # Validate the final lap before closing
+            is_valid_lap = (
+                validation_snapshot.last_laptime > 0
+                and not validation_snapshot.in_pits
             )
+
+            if is_valid_lap:
+                logging.info(
+                    f"Final valid lap {current_lap.lap_number}: "
+                    f"time: {validation_snapshot.last_laptime:.3f}s, "
+                    f"{current_lap.physics_count} physics samples, "
+                    f"{current_lap.scoring_count} scoring snapshots"
+                )
+                current_lap.close()
+            else:
+                logging.info(
+                    f"Final lap {current_lap.lap_number} invalid, discarding "
+                    f"(laptime: {validation_snapshot.last_laptime:.3f}s, "
+                    f"in_pits: {validation_snapshot.in_pits})"
+                )
+                current_lap.delete_files()
+        elif current_lap:
+            # No validation snapshot, just close
             current_lap.close()
 
     finally:

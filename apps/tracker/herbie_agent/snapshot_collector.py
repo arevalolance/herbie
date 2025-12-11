@@ -18,7 +18,7 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'tracker'))
 
-from tracker.api_connector import SimRF2
+from tracker.api_connector import SimRF2, APIDataSet
 from tracker.adapter import rf2_data
 
 logger = structlog.get_logger(__name__)
@@ -194,8 +194,7 @@ class SnapshotTelemetryCollector:
             if not tele_veh or not self.current_lap_id:
                 return None
 
-            data = rf2_data.DataSet()
-            data.setup(self.rf2_sim.info)
+            data = self.rf2_sim.dataset()
 
             # Extract all high-frequency data from rF2Telemetry buffer
             sample = PhysicsSample(
@@ -373,8 +372,7 @@ class SnapshotTelemetryCollector:
             if not scor_veh or not scor_info or not tele_veh or not self.current_lap_id:
                 return None
 
-            data = rf2_data.DataSet()
-            data.setup(self.rf2_sim.info)
+            data = self.rf2_sim.dataset()
 
             # Detect changes in scoring data
             current_sector = data.lap.sector_index()

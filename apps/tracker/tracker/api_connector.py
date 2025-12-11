@@ -35,7 +35,7 @@ class APIDataSet(NamedTuple):
 
     check: rf2_data.Check
     brake: rf2_data.Brake
-    emotor: rf2_data.ElectricMotor
+    electric_motor: rf2_data.ElectricMotor
     engine: rf2_data.Engine
     inputs: rf2_data.Inputs
     lap: rf2_data.Lap
